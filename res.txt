@@ -1,0 +1,12 @@
+Stock data
+
+GBT
+n_estimator and accuracy: (240, 4.3151261617541117)
+depth and accuracy: (6, 3.284717400802267)
+
+LSTM-discri
+
+128, 0.001, 3.9835775
+
+LSTM-gener
+
