@@ -148,7 +148,73 @@ def upsampling_onY( xlist, ylist ):
     return 0
 
 
-def prepare_train_test_data( steps, bool_add_trend):
+# Utilities 
+
+# argu: np.matrix
+# return: np.matrix
+def normalize_y( y_mat, m, v ):
+    
+    tmpy = y_mat.reshape( (len(y_mat),) )
+    tmpy = list(tmpy)
+    
+    resy = []
+    
+    for i in tmpy:
+        resy.append( (i - m)*1.0/sqrt(v + 0.001) )
+    
+    return np.array(resy)        
+
+
+def expand_x_local( local_size, data):
+    
+    list_data = list(data)
+    cnt = len(list_data)
+    steps = len(list_data[0])
+    
+    tmp_dta = []
+    
+    for i in range(cnt):
+        tmp_dta.append([])
+        for j in range(local_size-1,steps):
+            tmp_dta[-1].append( list_data[i][j-local_size+1:j+1] )
+    
+    return np.array(tmp_dta)
+
+# expand y, y_t -> y_1,...y_t
+# argu: np.matrix
+# return: np.matrix
+def expand_y( x, y ):
+    cnt = len(x)
+    expand_y = []
+    
+    tmpx = list(x)
+    tmpy = list(y)
+    
+    for i in range(cnt):
+        tmp = tmpx[i][1:]
+        tmp = np.append( tmp, tmpy[i] )
+        
+        expand_y.append( tmp )
+    
+    return np.array( expand_y )
+
+
+def expand_x_trend( x ):
+    
+    tmp_x = list(x)
+    cnt  = len(x)
+    colcnt = len(x[0])
+    
+    res_x = []
+    for i in range(cnt):
+        res_x.append([])
+        for j in range(1,colcnt):
+            res_x[-1].append( (tmp_x[i][j], tmp_x[i][j] - tmp_x[i][j-1]) )
+            
+    return np.array(res_x)
+
+
+def prepare_train_test_data( steps, bool_add_trend, xtrain_df, xtest_df, ytrain_df, ytest_df):
     
     PARA_STEPS = steps
     PARA_ADD_TREND = bool_add_trend
@@ -178,7 +244,7 @@ def prepare_train_test_data( steps, bool_add_trend):
         xtest = conti_normalization_test_dta(xtest_df, xtrain_df)
         xtrain= conti_normalization_train_dta(xtrain_df)
 
-        ytrain = ytrain_df.as_matrix()
-        ytest  = ytest_df.as_matrix()
+    ytrain = ytrain_df.as_matrix()
+    ytest  = ytest_df.as_matrix()
         
     return xtrain, ytrain, xtest, ytest

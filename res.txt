@@ -1,22 +1,50 @@
----power data
+++ One-One
 
-GBT
-XGT
-RF
+
+-- Interpolation --
+
+----Stock data
+
+GBT: 14.877119733465127
+XGT: 15.964889115958581
+RF: 14.935632787702737
+
+DiscriRNN: 13.9101045889
+
+----power data
+
+GBT: 0.74458780890740173
+XGT: 0.75128695926780564
+RF:  0.8720688638336821
+
 DiscriRNN: 0.818
 
 
----Stock data
+-- extropolation --
 
-Balanced:
+----Stock data
 
-DiscriRNN: 14.74
-RF:
-GBT: 15.14066215762009
-XGT: 15.272433615079684
+GBT: 126.37512779326002
+XGT: 90.024142397038602
+RF: 206.58797085014831
+
+DiscriRNN:
+
+----power data
+
+GBT: 1.0500517497875994
+XGT: 1.0695500750806568
+RF: 1.20141382665955
+
+DiscriRNN: 0.818
 
 
-Trend:
+++ Multi-One
+
+
+++ Trend in One-One:
+
+-- Interpolation --
 
 ---power data
 
@@ -28,11 +56,11 @@ DiscriRNN:
 
 ---Stock data
 
-Balanced:
+GBT:
+XGT:
+RF: 
+DiscriRNN:
 
-DiscriRNN: 14.74
-RF:
-GBT: 15.14066215762009
-XGT: 15.272433615079684
+-- extropolation --
 
-
+++ Multi-Multi
