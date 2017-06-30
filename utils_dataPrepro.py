@@ -232,6 +232,42 @@ def prepare_train_test_data( steps, bool_add_trend, xtrain_df, xtest_df, ytrain_
         xtest_df  = pd.DataFrame( tmp_xtest )
     
 #   normalize x in training and testing datasets
+        xtest = conti_normalization_test_dta( xtest_df, xtrain_df)
+        xtrain= conti_normalization_train_dta(xtrain_df)
+
+#   trend enhanced
+        xtest  = np.reshape( xtest,  [-1, (PARA_STEPS-1), 2 ] )
+        xtrain = np.reshape( xtrain, [-1, (PARA_STEPS-1), 2 ] )
+        
+    else:
+#   normalize x in training and testing datasets
+        xtest = conti_normalization_test_dta(xtest_df, xtrain_df)
+        xtrain= conti_normalization_train_dta(xtrain_df)
+
+    ytrain = ytrain_df.as_matrix()
+    ytest  = ytest_df.as_matrix()
+        
+    return xtrain, ytrain, xtest, ytest
+
+
+def prepare_trend_train_test_data( steps, bool_add_trend, xtrain_df, xtest_df, ytrain_df, ytest_df):
+    
+    PARA_STEPS = steps
+    PARA_ADD_TREND = bool_add_trend
+    
+    # integrate trends
+    if PARA_ADD_TREND == True:
+        
+        trend_xtrain = expand_x_trend( xtrain_df.as_matrix() )
+        trend_xtest  = expand_x_trend( xtest_df.as_matrix() )
+    
+        tmp_xtrain = np.reshape( trend_xtrain, [-1, (PARA_STEPS-1)*2 ] )
+        tmp_xtest  = np.reshape( trend_xtest,  [-1, (PARA_STEPS-1)*2 ] )
+    
+        xtrain_df = pd.DataFrame( tmp_xtrain )
+        xtest_df  = pd.DataFrame( tmp_xtest )
+    
+#   normalize x in training and testing datasets
         xtest = conti_normalization_test_dta(xtest_df, xtrain_df)
         xtrain= conti_normalization_train_dta(xtrain_df)
 
@@ -248,3 +284,44 @@ def prepare_train_test_data( steps, bool_add_trend, xtrain_df, xtest_df, ytrain_
     ytest  = ytest_df.as_matrix()
         
     return xtrain, ytrain, xtest, ytest
+
+
+def prepare_lastPoint_train_test_data( steps, bool_add_trend, xtrain_df, xtest_df, ytrain_df, ytest_df):
+    
+    PARA_STEPS = steps
+    PARA_ADD_TREND = bool_add_trend
+    
+    # integrate trends
+    if PARA_ADD_TREND == True:
+        
+        trend_xtrain = expand_x_trend( xtrain_df.as_matrix() )
+        trend_xtest  = expand_x_trend( xtest_df.as_matrix() )
+    
+        tmp_xtrain = np.reshape( trend_xtrain, [-1, (PARA_STEPS-1)*2 ] )
+        tmp_xtest  = np.reshape( trend_xtest,  [-1, (PARA_STEPS-1)*2 ] )
+    
+        xtrain_df = pd.DataFrame( tmp_xtrain )
+        xtest_df  = pd.DataFrame( tmp_xtest )
+    
+#   normalize x in training and testing datasets
+        xtest = conti_normalization_test_dta(xtest_df, xtrain_df)
+        xtrain= conti_normalization_train_dta(xtrain_df)
+
+#   trend enhanced
+        xtest  = np.reshape( xtest,  [-1, (PARA_STEPS-1), 2 ] )
+        xtrain = np.reshape( xtrain, [-1, (PARA_STEPS-1), 2 ] )
+        
+    else:
+#   normalize x in training and testing datasets
+        xtest = conti_normalization_test_dta(xtest_df, xtrain_df)
+        xtrain= conti_normalization_train_dta(xtrain_df)
+
+    ytrain = ytrain_df.as_matrix()
+    ytest  = ytest_df.as_matrix()
+        
+    return xtrain, ytrain, xtest, ytest
+
+
+def flatten_features(dta):
+    tmplen = np.shape(dta)[0]
+    return np.reshape(dta, [tmplen,-1])
