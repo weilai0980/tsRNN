@@ -201,20 +201,35 @@ def expand_y( x, y ):
 
 def expand_x_trend( x ):
     
-    tmp_x = list(x)
-    cnt  = len(x)
-    colcnt = len(x[0])
+    shape_arr = np.shape(x)
+    cnt = shape_arr[0]
+    steps = shape_arr[1]
     
-    res_x = []
-    for i in range(cnt):
-        res_x.append([])
-        for j in range(1,colcnt):
-            res_x[-1].append( (tmp_x[i][j], tmp_x[i][j] - tmp_x[i][j-1]) )
+    if len( shape_arr ) == 2:
+        
+        tmp_x = list(x)
+      
+        res_x = []
+        for i in range(cnt):
+            res_x.append([])
+            for j in range(1,colcnt):
+                res_x[-1].append( (tmp_x[i][j], tmp_x[i][j] - tmp_x[i][j-1]) )
+            
+    elif len( shape_arr ) == 3:
+        tmp_x = list(x)
+      
+        res_x = []
+        for i in range(cnt):
+            res_x.append([])
+            for j in range(1,colcnt):
+                res_x[-1].append( (tmp_x[i][j], tmp_x[i][j] - tmp_x[i][j-1]) )
+        
             
     return np.array(res_x)
 
 
-def prepare_train_test_data( steps, bool_add_trend, xtrain_df, xtest_df, ytrain_df, ytest_df):
+def prepare_train_test_data( steps, bool_add_trend, xtrain, xtest, ytrain, ytest):
+    
     
     PARA_STEPS = steps
     PARA_ADD_TREND = bool_add_trend
@@ -222,14 +237,20 @@ def prepare_train_test_data( steps, bool_add_trend, xtrain_df, xtest_df, ytrain_
     # integrate trends
     if PARA_ADD_TREND == True:
         
-        trend_xtrain = expand_x_trend( xtrain_df.as_matrix() )
-        trend_xtest  = expand_x_trend( xtest_df.as_matrix() )
+        trend_xtrain = expand_x_trend( xtrain )
+        trend_xtest  = expand_x_trend( xtest )
     
         tmp_xtrain = np.reshape( trend_xtrain, [-1, (PARA_STEPS-1)*2 ] )
         tmp_xtest  = np.reshape( trend_xtest,  [-1, (PARA_STEPS-1)*2 ] )
     
         xtrain_df = pd.DataFrame( tmp_xtrain )
         xtest_df  = pd.DataFrame( tmp_xtest )
+    
+        xtrain_df = pd.DataFrame( flatten_features(np.load(files_list[0])) )
+        xtest_df  = pd.DataFrame( flatten_features(np.load(files_list[1])) )
+        ytrain_df = pd.DataFrame( flatten_features(np.load(files_list[2])) )
+        ytest_df  = pd.DataFrame( flatten_features(np.load(files_list[3])) )   
+    
     
 #   normalize x in training and testing datasets
         xtest = conti_normalization_test_dta( xtest_df, xtrain_df)
