@@ -206,45 +206,35 @@ def expand_x_trend( x ):
     steps = shape[1]
     
     tmp_x = list(x)
-    if len( shape_arr ) == 2:
+    if len( shape ) == 2:
       
         res_x = []
         for i in range(cnt):
-            res_x.append( [(tmp_x[i][j], tmp_x[i][j] - tmp_x[i][j-1])  for j in range(1,steps)] )          
-#            res_x.append([])
-#            for j in range(1,colcnt):
-#                res_x[-1].append( (tmp_x[i][j], tmp_x[i][j] - tmp_x[i][j-1]) )
+            res_x.append( [ (tmp_x[i][j], tmp_x[i][j] - tmp_x[i][j-1]) for j in range(1,steps)] )          
             
-    elif len( shape_arr ) == 3:
+    elif len( shape ) == 3:
         
-        n_dim = shape_arr[2]
+        n_dim = shape[2]
     
         res_x = []
         for i in range(cnt):
             res_x.append([])
-            for j in range(steps):
-                res_x[-1].append( [ (tmp_x[i][j][k], tmp_x[i][j][k] - tmp_x[i][j-1][k])  for k in range(1,n_dim)] )    
+            for j in range(1, steps):
+                res_x[-1].append( [ (tmp_x[i][j][k], tmp_x[i][j][k] - tmp_x[i][j-1][k]) for k in range(n_dim)] )    
                         
     res_x = np.array(res_x)
     
-    return np.reshape(res_x, [cnt, steps, -1]
+    return np.reshape(res_x, [cnt, steps-1, -1])
 
 
-def prepare_train_test_data(steps, bool_add_trend, xtrain, xtest, ytrain, ytest, files_list):
+def prepare_train_test_data(bool_add_trend, files_list):
     
-    
-    PARA_STEPS = steps
     PARA_ADD_TREND = bool_add_trend
                       
     xtr = np.load(files_list[0])
     xts = np.load(files_list[1])
     ytr = np.load(files_list[2])
     yts = np.load(files_list[3]) 
-                      
-    xtrain_df = pd.DataFrame( xtr )
-    xtest_df  = pd.DataFrame( xts )
-#    ytrain_df = pd.DataFrame( flatten_features(np.load(files_list[2])) )
-#    ytest_df  = pd.DataFrame( flatten_features(np.load(files_list[3])) )
                     
     cnt_tr = len(xtr)
     cnt_ts = len(xts)      
@@ -261,23 +251,19 @@ def prepare_train_test_data(steps, bool_add_trend, xtrain, xtest, ytrain, ytest,
         xtrain_df = pd.DataFrame( tmp_xtrain )
         xtest_df  = pd.DataFrame( tmp_xtest )
         
-#   normalize x in training and testing datasets
-    xtest = conti_normalization_test_dta( xtest_df, xtrain_df)
-    xtrain= conti_normalization_train_dta(xtrain_df)
-
-#   trend enhanced
-#        xtest  = np.reshape( xtest,  [-1, (PARA_STEPS-1), 2 ] )
-#        xtrain = np.reshape( xtrain, [-1, (PARA_STEPS-1), 2 ] )
+    else:
         
-#    else:
-#   normalize x in training and testing datasets
-#        xtest = conti_normalization_test_dta(xtest_df, xtrain_df)
-#        xtrain= conti_normalization_train_dta(xtrain_df)
-
-#    ytrain = ytrain_df.as_matrix()
-#    ytest  = ytest_df.as_matrix()
+        tmp_xtrain = np.reshape( xtr, [cnt_tr, -1 ] )
+        tmp_xtest  = np.reshape( xts, [cnt_ts, -1 ] )
+    
+        xtrain_df = pd.DataFrame( tmp_xtrain )
+        xtest_df  = pd.DataFrame( tmp_xtest )
         
-    return xtrain, ytrain, xtest, ytest
+#   normalize x in training and testing datasets
+    xtest = conti_normalization_test_dta(  xtest_df, xtrain_df )
+    xtrain= conti_normalization_train_dta( xtrain_df )
+        
+    return xtrain, ytr, xtest, yts
 
 
 ############################################
