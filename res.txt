@@ -80,6 +80,8 @@ RF:  1.3181517142067964
 DiscriRNN: 
 
 
+
+
 ++ One-One with Trend
 
 -- Interpolation --
@@ -122,5 +124,21 @@ DiscriRNN:
 
 ++ Multi-One with Trend
 
+-- extropolation --
+
+---Stock data
+
+GBT: 102.06150647565501
+XGT:
+RF:
+
+DiscriRNN: 
+
+---power data
+
+GBT: 102.06150647565501
+XGT:
+RF:
+DiscriRNN:
 
 
