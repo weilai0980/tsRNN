@@ -1,0 +1,8 @@
+ #!/bin/bash
+
+scp -r forecasting/  tianguo@192.168.1.177:tsRNN/
+
+
+
+
+

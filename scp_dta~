@@ -1,0 +1,5 @@
+ #!/bin/bash
+
+echo $1
+
+scp ../dataset/dataset_ts/$1*.* tianguo@192.168.1.177:dataset/dataset_ts

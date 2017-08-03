@@ -1,0 +1,5 @@
+At epoch 10: 0.100000At epoch 10: 0.100000At epoch 10: 0.100000At epoch 10: 0.100000At epoch 10: 0.100000At epoch 10: 0.100000At epoch 10: 0.100000 
+At epoch 10: 0.100000 
+At epoch 10: 0.100000 
+At epoch 10: 0.100000 
+At epoch 10: 0.100000 
