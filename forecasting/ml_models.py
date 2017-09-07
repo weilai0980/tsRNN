@@ -133,7 +133,7 @@ def gbt_tree_para( X, Y, xtest, ytest, depth_range, fix_lr, fix_n_est, bool_clf 
 # Learning Task Parameters
 
 
-def xgt_n_depth( lr, max_depth, max_round, xtrain, ytrain, xtest, ytest, bool_clf ):
+def xgt_n_depth( lr, max_depth, max_round, xtrain, ytrain, xtest, ytest, bool_clf, num_class ):
     
     score = []
     xg_train = xgb.DMatrix(xtrain, label = ytrain)
@@ -145,6 +145,7 @@ def xgt_n_depth( lr, max_depth, max_round, xtrain, ytrain, xtest, ytest, bool_cl
 
     if bool_clf == True:
         param['objective'] = 'multi:softmax'
+        param['num_class'] = num_class
     else:
         param['objective'] = "reg:linear" 
 #   'multi:softmax'
@@ -154,7 +155,7 @@ def xgt_n_depth( lr, max_depth, max_round, xtrain, ytrain, xtest, ytest, bool_cl
     param['max_depth'] = 0
     param['silent'] = 1
     param['nthread'] = 8
-#     param['num_class'] = 8
+    
 #     param['gamma']
     
     for depth_trial in range(2, max_depth):
@@ -167,7 +168,7 @@ def xgt_n_depth( lr, max_depth, max_round, xtrain, ytrain, xtest, ytest, bool_cl
             if bool_clf == True:
                 tmplen = len(ytest)
                 tmpcnt = 0.0
-                for i in range(tmpcnt):
+                for i in range(tmplen):
                     if ytest[i] == pred[i]:
                         tmpcnt +=1
                         
@@ -181,7 +182,7 @@ def xgt_n_depth( lr, max_depth, max_round, xtrain, ytrain, xtest, ytest, bool_cl
     return min(score, key = lambda x: x[2]), score
 
 
-def xgt_l2( fix_lr, fix_depth, fix_round, xtrain, ytrain, xtest, ytest, l2_range, bool_clf ):
+def xgt_l2( fix_lr, fix_depth, fix_round, xtrain, ytrain, xtest, ytest, l2_range, bool_clf, num_class ):
     
     score = []
     xg_train = xgb.DMatrix(xtrain, label = ytrain)
@@ -192,6 +193,7 @@ def xgt_l2( fix_lr, fix_depth, fix_round, xtrain, ytrain, xtest, ytest, l2_range
 # use softmax multi-class classification
     if bool_clf == True:
         param['objective'] = 'multi:softmax'
+        param['num_class'] = num_class
     else:
         param['objective'] = "reg:linear" 
 
@@ -202,7 +204,6 @@ def xgt_l2( fix_lr, fix_depth, fix_round, xtrain, ytrain, xtest, ytest, l2_range
     param['max_depth'] = fix_depth
     param['silent'] = 1
     param['nthread'] = 8
-#     param['num_class'] = 8
     
     param['lambda'] = 0.0
 #     param['alpha']
@@ -218,7 +219,7 @@ def xgt_l2( fix_lr, fix_depth, fix_round, xtrain, ytrain, xtest, ytest, l2_range
         if bool_clf == True:
             tmplen = len(ytest)
             tmpcnt = 0.0
-            for i in range(tmpcnt):
+            for i in range(tmplen):
                 if ytest[i] == pred[i]:
                     tmpcnt +=1
                         
