@@ -38,9 +38,28 @@ from utils_dataPrepro import *
 #sys.path.append("/usr/local/lib/python2.7/dist-packages/tensorflow/models/tutorials/rnn/translate")
 
 
+# To Do:
+# context based generative
+# time stamp as input features 
+
+# TO DO
+# model differenced data 
+# trend 
+
+
+# --- results --- 
+res_file = "res/tsRnn_gen.txt"
+
+# --- set-up ---
+hidden_neurons = 64
+para_lr = 0.00001
+para_batch_size = 512
+para_epoch = 500
+
+
 
 # validation on each epoch 
-class TestCallback(Callback):
+class TestCallback_Generative(Callback):
     def __init__(self, test_data, train_data):
         self.test_data  = test_data
         self.train_data = train_data
@@ -49,24 +68,28 @@ class TestCallback(Callback):
         x_ts, y_ts = self.test_data
         x_tr, y_tr = self.train_data
         
-        py_tr = self.model.predict(x_tr, verbose=0)
+#         loss = self.model.evaluate(x, y, verbose=0)
+        
         py_ts = self.model.predict(x_ts, verbose=0)
+        py_tr = self.model.predict(x_tr, verbose=0)
         
-        size_tr = len(x_tr)
-        size_ts = len(x_ts)
+        cnt_ts = len(x_ts)
+        cnt_tr = len(x_tr)
         
-        err_tr = [ (y_tr[i][0] - py_tr[i][0])**2 for i in range(size_tr) ]
-        err_ts = [ (y_ts[i][0] - py_ts[i][0])**2 for i in range(size_ts) ]
-        
-        loss = self.model.evaluate(x_ts, y_ts, verbose=0)
-        
-        with open("res/tsRnn.txt", "a") as text_file:
-            text_file.write("At epoch %d: loss %f, train %f, test %f\n" % ( epoch, loss, sqrt(mean(err_tr)),\
-                                                                           sqrt(mean(err_ts))) )        
-#        print('\nTesting loss: {}, test_err:{}, train_err:{} \n'.format(\
-#               loss, sqrt( mean(err_ts) ), sqrt( mean(err_tr) ) ))
+        mse_ts = mean([(py_ts[i][-1][0] - y_ts[i][-1][0])**2 for i in range(cnt_ts)])
+        mse_tr = mean([(py_tr[i][-1][0] - y_tr[i][-1][0])**2 for i in range(cnt_tr)])
+                
+        with open(res_file, "a") as text_file:
+            text_file.write("At epoch %d: train %f, test %f\n" % ( epoch, sqrt(mse_tr),\
+                                                                           sqrt(mse_ts) )) 
+            
 
+# --- prepare ---
 
+with open(res_file, "w") as text_file:
+    text_file.close()
+            
+        
 # # air-quality data
 
 files_list=["../../dataset/dataset_ts/air_xtrain.dat", \
@@ -74,50 +97,81 @@ files_list=["../../dataset/dataset_ts/air_xtrain.dat", \
             "../../dataset/dataset_ts/air_ytrain.dat", \
             "../../dataset/dataset_ts/air_ytest.dat"]
 
+
+
+
 xtrain, ytrain, xtest, ytest, tr_shape, ts_shape = \
 prepare_train_test_data( False, files_list)
 
-xtrain = np.reshape( xtrain, (tr_shape[0], tr_shape[1], -1) )
-ytrain = np.reshape( ytrain, (tr_shape[0], 1) ) 
-xtest  = np.reshape( xtest,  (ts_shape[0], ts_shape[1], -1) )
-ytest = np.reshape(  ytest,  (ts_shape[0], 1) )
+#xtrain = np.reshape( xtrain, (tr_shape[0], tr_shape[1], -1) )
+#ytrain = np.reshape( ytrain, (tr_shape[0], 1) ) 
+#xtest  = np.reshape( xtest,  (ts_shape[0], ts_shape[1], -1) )
+#ytest = np.reshape(  ytest,  (ts_shape[0], 1) )
 
 print np.shape(xtrain), np.shape(ytrain), np.shape(xtest), np.shape(ytest)
 
-
-# Generative model
-
-# set-up
-in_out_neurons = 1
-hidden_neurons = 256
-win_size = 200    
+if len(tr_shape)==2:
     
+    gen_xtrain = np.expand_dims( xtrain, 2 )
+    gen_xtest  = np.expand_dims( xtest,  2 )
+    
+elif len(tr_shape)==3:
+    gen_xtrain = np.reshape( xtrain, tr_shape )
+    gen_xtest  = np.reshape( xtest,  ts_shape )
+
+
 # prepare data
-ytrain = expand_y( xtrain_df.as_matrix(), ytrain_df.as_matrix() )
-ytest  = expand_y( xtest_df.as_matrix(),  ytest_df.as_matrix()  )
+ytrain = expand_y( gen_xtrain, ytrain )
+ytest  = expand_y( gen_xtest , ytest  )
 
-gen_xtrain = np.reshape( xtrain, [-1, win_size, 1] )
-gen_ytrain = np.reshape( ytrain, [-1, win_size, 1] )
-
-gen_xtest  = np.reshape( xtest, [-1, win_size, 1] )
-gen_ytest  = np.reshape( ytest, [-1, win_size, 1] )
-
+gen_ytrain = np.expand_dims( ytrain, 2 ) 
+gen_ytest  = np.expand_dims( ytest,  2 )
+    
 print np.shape(gen_xtrain), np.shape(gen_ytrain), np.shape(gen_xtest), np.shape(gen_ytest)
 
 
-# optimizer 
-adam  = Adam(lr = 0.002, beta_1 = 0.9, beta_2 = 0.999, epsilon = 1e-08, decay = 0.0)
 
+# Generative model  
+
+in_out_neurons = np.shape(gen_xtrain)[-1]
+win_size = np.shape(gen_xtrain)[1]  
+    
+# optimizer 
+sgd  = SGD(lr = 0.0001, momentum = 0.9, nesterov = True)
+rmsp = RMSprop(lr=0.0001, rho=0.9, epsilon=1e-08, decay=0.0)
+adam = Adam(lr = para_lr, beta_1 = 0.9, beta_2 = 0.999, epsilon = 1e-08, decay = 0.0)
+
+# network structure 
 model = Sequential()
 model.add( LSTM(hidden_neurons, input_dim = in_out_neurons, return_sequences = True, \
                 input_length = win_size,\
-                activation   = 'tanh',\
+                input_shape = [para_batch_size, win_size, in_out_neurons ],\
+                activation   = 'sigmoid',\
 #                dropout = 0.1,\
 #                kernel_regularizer = l2(0.15), \
 #                recurrent_regularizer = l2(0.15), \
                 kernel_initializer    = glorot_normal(), \
                 recurrent_initializer = glorot_normal() ) )
 
+
+model.add( LSTM(64, return_sequences = True, \
+#                input_length = win_size,\
+                activation   = 'sigmoid',\
+#                dropout = 0.1,\
+#                kernel_regularizer = l2(0.15), \
+#                recurrent_regularizer = l2(0.15), \
+                kernel_initializer    = glorot_normal(), \
+                recurrent_initializer = glorot_normal() ) )
+'''
+model.add( LSTM(32, input_dim = in_out_neurons, return_sequences = True, \
+                input_length = win_size,\
+                activation   = 'sigmoid',\
+#                dropout = 0.1,\
+#                kernel_regularizer = l2(0.15), \
+#                recurrent_regularizer = l2(0.15), \
+                kernel_initializer    = glorot_normal(), \
+                recurrent_initializer = glorot_normal() ) )
+'''
 
 # identity ini
 # he's ini:   he_normal()
@@ -126,18 +180,26 @@ model.add( LSTM(hidden_neurons, input_dim = in_out_neurons, return_sequences = T
 
 
 #model.add(Dropout(0.7))
-model.add(Dense(128,\
+#model.add(Dense(128,\
 #                    kernel_regularizer = l2(0.01), \
-                    kernel_initializer = he_normal()))
-model.add(Activation("relu"))
-
+#                    kernel_initializer = he_normal()))
+#model.add(Activation("relu"))
+'''
+model.add(TimeDistributed(Dense(128, activation = 'relu',\
+                                    kernel_regularizer = l2(0.01), \
+                                    kernel_initializer = he_normal() ) ))
+'''
 # model.add(Dropout(0.1))
 model.add(TimeDistributed(Dense(128, activation = 'relu',\
-#                                     kernel_regularizer = l2(0.1), \
+#                                    kernel_regularizer = l2(0.001), \
                                     kernel_initializer = he_normal() ) ))
 
 model.add(TimeDistributed(Dense(64, activation = 'relu',\
-#                                     kernel_regularizer = l2(0.01), \
+#                                    kernel_regularizer = l2(0.001), \
+                                    kernel_initializer = he_normal() ) ))
+
+model.add(TimeDistributed(Dense(32, activation = 'linear',\
+#                                    kernel_regularizer = l2(0.001), \
                                     kernel_initializer = he_normal() ) ))
 
 model.add(TimeDistributed(Dense(1,  activation = 'linear',\
@@ -145,11 +207,16 @@ model.add(TimeDistributed(Dense(1,  activation = 'linear',\
                                     kernel_initializer = he_normal() ) ))
 
 
+# save model 
+filepath="res/model/generative_weights-{epoch:02d}.hdf5"
+checkpointer = ModelCheckpoint(filepath, verbose=0, save_best_only=False, save_weights_only=False,\
+                               period = 10 )
+
 # training
-model.compile( loss = "mean_squared_error", optimizer = adam )
+model.compile( loss = "mean_squared_error", optimizer = sgd )
 
 
 model.fit( gen_xtrain, gen_ytrain, shuffle=True,  \
            callbacks = [ TestCallback_Generative( \
                          (gen_xtest, gen_ytest), (gen_xtrain, gen_ytrain) ) ], \
-                         batch_size = 128, epochs = 500 )
+                         batch_size = para_batch_size, epochs = para_epoch )

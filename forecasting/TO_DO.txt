@@ -1,0 +1,42 @@
+1. bi-directional LSTM 
+2. mixture model for non-stationry time series
+3. LSTM GRU tensorflow souce code 
+
+# basic model 
+# stateful training
+# multivariate time series
+
+
+residual rnn
+high way layers
+
+
+air pollution data: heterogenous 
+
+
+4. python automatic time series forecasting 
+5. prophet 
+causalimpact
+
+
+# basic model 
+# multivariate time series
+# residual rnn
+# exponeital weighted moving average 
+
+# stateful training
+
+Tensorflow:
+individual multi
+
+RMSE mean, standard errors
+
+gcForest
+
+large regularization
+
+
+
+
+
+

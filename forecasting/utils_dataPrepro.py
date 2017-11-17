@@ -11,6 +11,8 @@ import random
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
 
+import utils_libs
+
 def conti_normalization_train_dta(dta_df):
     
     return preprocessing.scale(dta_df)
@@ -36,7 +38,7 @@ def conti_normalization_test_dta(dta_df, train_df):
 
 
 # for both univeriate and multi-variate cases
-def instance_extraction( list_ts, win_size ):
+def instance_extraction( list_ts, win_size, is_stateful ):
     
     n = len(list_ts)
     if n < win_size:
@@ -45,9 +47,15 @@ def instance_extraction( list_ts, win_size ):
     
     listX = []
     listY = []
-    for i in range(win_size, n):
-        listX.append( list_ts[i-win_size:i] )
-        listY.append( list_ts[i] )
+    
+    if is_stateful:
+        for i in range(win_size, n, win_size):
+            listX.append( list_ts[i-win_size:i] )
+            listY.append( list_ts[i] )
+    else:
+        for i in range(win_size, n):
+            listX.append( list_ts[i-win_size:i] )
+            listY.append( list_ts[i] )
         
     return listX, listY
 
@@ -55,7 +63,7 @@ def instance_extraction( list_ts, win_size ):
 # for the case of multiple independent and one target series 
 # argu: list
 # return: list
-def instance_extraction_multiple_one( list_target, list_indepen, win_size ):
+def instance_extraction_multiple_one( list_target, list_indepen, win_size, is_stateful ):
     
     n = len(list_target)
     if n < win_size:
@@ -64,15 +72,25 @@ def instance_extraction_multiple_one( list_target, list_indepen, win_size ):
     
     listX = []
     listY = []
-    for i in range(win_size, n):
+    
+    if is_stateful:
         
-        tmp  = list_indepen[i-win_size:i]
-        tmp1 = np.reshape( list_target[i-win_size:i], [-1,1] )
-        
-        tmp  = np.append( tmp, tmp1 , axis = 1 )
+        for i in range(win_size, n, win_size):
+            tmp  = list_indepen[i-win_size:i]
+            tmp1 = np.expand_dims(list_target[i-win_size:i], axis=1) 
+            #tmp1 = np.reshape( list_target[i-win_size:i], [-1,1] )
+            tmp  = np.append( tmp, tmp1 , axis = 1 )
                     
-        listX.append( tmp )
-        listY.append( list_target[i] )
+            listX.append( tmp )
+            listY.append( list_target[i] )
+    else:
+        for i in range(win_size, n):
+            tmp  = list_indepen[i-win_size:i]
+            tmp1 = np.expand_dims(list_target[i-win_size:i], axis=1)
+            tmp  = np.append( tmp, tmp1 , axis = 1 )
+                    
+            listX.append( tmp )
+            listY.append( list_target[i] )
         
     return listX, listY
 
@@ -123,23 +141,37 @@ def expand_x_local( local_size, data):
     return np.array(tmp_dta)
 
 # expand y, y_t -> y_1,...y_t
+# in x, y is on the last column
 # argu: np.matrix
 # return: np.matrix
 def expand_y( x, y ):
     cnt = len(x)
     expand_y = []
     
-    tmpx = list(x)
-    tmpy = list(y)
-    
-    for i in range(cnt):
-        tmp = tmpx[i][1:]
-        tmp = np.append( tmp, tmpy[i] )
+    if np.shape(x)[2]==1:
         
-        expand_y.append( tmp )
+        tmpx = list(x)
+        tmpy = list(y)
+        for i in range(cnt):
+            tmp = tmpx[i][1:]
+            tmp = np.append( tmp, tmpy[i] )
+            expand_y.append( tmp )
     
-    return np.array( expand_y )
-
+        return np.array( expand_y )
+    
+    elif np.shape(x)[2]>1:
+        
+        tmpx = np.transpose(x,[2,0,1])
+        tmpx = tmpx[-1]
+        
+        tmpy = list(y)
+        for i in range(cnt):
+            tmp = tmpx[i][1:]
+            tmp = np.append( tmp, tmpy[i] )
+            expand_y.append( tmp )
+    
+        return np.array( expand_y )
+        
 
 def expand_x_trend( x ):
     
@@ -222,7 +254,102 @@ def prepare_train_test_data(bool_add_trend, files_list):
     return xtrain, ytr, xtest, yts, original_shape_tr, original_shape_ts
 
 
-############################################
+
+
+
+def build_training_testing_data_4learning( dta_df, target_col, indep_col, \
+                                para_uni_variate, para_train_test_split, para_win_size, \
+                                para_train_range, para_test_range, is_stateful):
+        
+# univariate
+    if para_uni_variate == True:
+        
+        x_all, y_all = instance_extraction( \
+                       list(dta_df[target_col][ para_train_range[0]:para_train_range[1] ]), \
+                                           para_win_size, is_stateful )
+
+# multiple independent and one target series
+    else:
+        dta_mat = dta_df[ indep_col ][ para_train_range[0]:para_train_range[1] ].as_matrix()
+        x_all, y_all = instance_extraction_multiple_one( \
+                        list(dta_df[ target_col ][ para_train_range[0]:para_train_range[1] ]),\
+                                                 list(dta_mat),para_win_size, is_stateful )
+# multivariate 
+# x_all, y_all = instance_extraction( list(dta_df[['Open','High','Low','Volume']][:4000]), 100 )
+
+
+# downsample the whole data
+    total_idx = range(len(x_all))
+    np.random.shuffle(total_idx)
+
+    x_all = np.array(x_all)
+    y_all = np.array(y_all)
+
+    x_all = x_all[ total_idx[: int(1.0*len(total_idx))] ]
+    y_all = y_all[ total_idx[: int(1.0*len(total_idx))] ]
+    
+    
+    tmp_x_train, tmp_x_test, tmp_y_train, tmp_y_test = \
+    train_test_split( x_all, y_all, test_size = 0.2, random_state = 20)
+
+    
+# training and testing data
+
+# by extracting from subsequent data
+    if para_train_test_split == False:
+        
+#       for test data, no needs of stateful test instances 
+        if para_uni_variate == False:
+            
+            dta_mat = dta_df[ indep_col ][ para_test_range[0]:para_test_range[1] ].as_matrix()
+
+            x_test, y_test = instance_extraction_multiple_one(\
+                             list(dta_df[ target_col ][ para_test_range[0]:para_test_range[1] ]),\
+                                                           list(dta_mat),para_win_size, False )
+        else:
+            x_test, y_test = instance_extraction( \
+                             list(dta_df[ target_col ][ para_test_range[0]:para_test_range[1] ]), \
+                                                 para_win_size, False )
+            
+        x_train = np.array(x_all)
+        y_train = np.array(y_all)
+        x_test = np.array(x_test)
+        y_test = np.array(y_test)
+        
+#       return all data in the train_range  
+        return x_train, x_test, y_train, y_test
+
+# by randomly split
+    else:
+        return  tmp_x_train, tmp_x_test, tmp_y_train, tmp_y_test
+
+
+
+def build_training_testing_data_4statistics( dta_df, target_col, indep_col, \
+                                para_uni_variate, \
+                                para_train_range, para_test_range):
+        
+# univariate
+    if para_uni_variate == True:
+        
+        x_train = dta_df[target_col][ para_train_range[0]:para_train_range[1] ].as_matrix()
+        
+        x_test  = dta_df[target_col][ para_test_range[0]:para_test_range[1] ].as_matrix()
+
+
+# multiple independent and one target series
+    else:
+        
+        indep_col.append(target_col)
+        
+        x_train = dta_df[ indep_col ][ para_train_range[0]:para_train_range[1] ].as_matrix()
+        
+        x_test  = dta_df[ indep_col ][ para_test_range[0]:para_test_range[1] ].as_matrix()
+        
+    return x_train, x_test
+
+
+###############################################################################################33
 #TO DO
 
 def prepare_trend_train_test_data( steps, bool_add_trend, xtrain_df, xtest_df, ytrain_df, ytest_df):

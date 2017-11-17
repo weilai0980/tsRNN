@@ -69,11 +69,11 @@ print "\nStart to train GBT"
 
 fix_lr = 0.25
 
-n_err, n_err_list = gbt_n_estimatior(301, xtrain, ytrain, xtest, ytest, fix_lr)
+n_err, n_err_list = gbt_n_estimatior(301, xtrain, ytrain, xtest, ytest, fix_lr, False)
 
 print "n_estimator, RMSE:", n_err
 
-depth_err, depth_err_list = gbt_tree_para( xtrain, ytrain, xtest, ytest, range(3,16), fix_lr, n_err[0] )
+depth_err, depth_err_list = gbt_tree_para( xtrain, ytrain, xtest, ytest, range(3,16), fix_lr, n_err[0],False )
 
 print "depth, RMSE:", depth_err
 
@@ -86,12 +86,12 @@ print "\nStart to train XGBoosted"
 
 fix_lr = 0.2
 
-n_depth_err, n_depth_err_list = xgt_n_depth( fix_lr, 16, 51, xtrain, ytrain, xtest, ytest)
+n_depth_err, n_depth_err_list = xgt_n_depth( fix_lr, 16, 51, xtrain, ytrain, xtest, ytest, False,0)
 
 print " depth, number of rounds, RMSE:", n_depth_err
 
 l2_err, l2_err_list = xgt_l2( fix_lr, n_depth_err[0], n_depth_err[1], xtrain, ytrain, xtest, ytest,\
-                    [0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000])
+                    [0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000], False, 0)
 
 print " l2, RMSE:", l2_err
 
@@ -103,7 +103,7 @@ with open("res/tsML.txt", "a") as text_file:
 # Random forest performance
 print "\nStart to train Random Forest"
 
-n_err, n_err_list = rf_n_depth_estimatior( 130, 25, xtrain, ytrain, xtest, ytest )
+n_err, n_err_list = rf_n_depth_estimatior( 130, 25, xtrain, ytrain, xtest, ytest,False)
 
 print "n_estimator, RMSE:", n_err
 
