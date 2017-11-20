@@ -10,7 +10,7 @@ from tensorflow.python.ops import rnn_cell_impl
 from tensorflow.python.ops.rnn_cell_impl import *
 
 # local 
-#from custom_rnn_cell import *
+from custom_rnn_cell import *
 from utils_libs import *
 
     
@@ -38,7 +38,7 @@ def res_lstm( x, hidden_dim, n_layers, scope):
              
     return hiddens, state
 
-def plain_lstm_stacked(self, x, x_dim, dim_layers, scope):
+def plain_lstm_stacked( x, dim_layers, scope):
     
     with tf.variable_scope(scope):
         #Deep lstm: residual or highway connections 
@@ -84,7 +84,7 @@ def res_dense( x, x_dim, hidden_dim, n_layers, scope, dropout_keep_prob):
         
         return h, regularization
     
-def plain_dense(self, x, x_dim, dim_layers, scope, dropout_keep_prob):
+def plain_dense( x, x_dim, dim_layers, scope, dropout_keep_prob):
         
         with tf.variable_scope(scope):
                 # initilization
@@ -145,7 +145,7 @@ class tsLSTM_discriminative():
             #dropout
             #h = tf.nn.dropout(h, self.keep_prob)
             
-            h, regul = res_dense( h, n_lstm_dim_layers[0], n_dense_dim_layers[0], len(n_lstm_dim_layers), 'dense',\
+            h, regul = res_dense( h, n_lstm_dim_layers[0], n_dense_dim_layers[0], len(n_dense_dim_layers), 'dense',\
                                   self.keep_prob )
             
         #dropout
@@ -206,8 +206,6 @@ class tsLSTM_discriminative():
 
 class tsLSTM_seperate_mv():
     
-     #split0, split1, split2 = tf.split(value, num_or_size_splits=3, axis=1)
-
     def __init__(self, n_dense_dim_layers, n_lstm_dim_layers, n_steps, n_data_dim, session,\
                  lr, l2, max_norm , n_batch_size ):
         
@@ -229,70 +227,44 @@ class tsLSTM_seperate_mv():
         
         self.sess = session
         
-    
-        self.tmpshape = []
-        
-        split0, split1, split2 = tf.split(value, [4, 15, 11], 1)
-        
+        indivi_ts = tf.split(self.x, num_or_size_splits = self.N_DATA_DIM, axis = 2)
+        concat_h  = []
         
         for i in range( self.N_DATA_DIM ):
             
-            #slice input placeholder
+            current_x = indivi_ts[i]
             
-            tmpx = tf.slice( self.x, [0,0,i], [ -1, self.N_STEPS, 1 ] )
+            h, _  = res_lstm( current_x, n_lstm_dim_layers[0], len(n_lstm_dim_layers), 'lstm'+str(i) )
+            # obtain the last hidden state    
+            tmp_hiddens = tf.transpose( h, [1,0,2]  )
+            h = tmp_hiddens[-1]
             
-            self.tmpshape.append( tf.shape(tmpx) ) 
-            
-            with tf.variable_scope("lstm"):
-                lstm_cell = [tf.nn.rnn_cell.LSTMCell(size, initializer= tf.contrib.keras.initializers.glorot_normal() ) \
-                         for size in self.n_lstm_dim_layers ]
-                stacked_lstm = tf.contrib.rnn.MultiRNNCell( lstm_cell, state_is_tuple=True )     
-                hiddens, self.state = tf.nn.dynamic_rnn(cell = stacked_lstm, inputs = self.x, dtype = tf.float32)
-                
-            tmp_hiddens = tf.transpose( hiddens, [1,0,2]  )
-            last_hidden = tmp_hiddens[-1]
+            concat_h.append(h)
+         
+        # hidden space merge
+        h = tf.concat(concat_h, 1)
+        #dropout
+        #h = tf.nn.dropout(h, self.keep_prob)
         
-            #dropout
-            last_hidden = tf.nn.dropout(last_hidden, self.keep_prob)
+        h, regul = plain_dense(h, n_lstm_dim_layers[-1]*self.N_DATA_DIM, n_dense_dim_layers, 'dense', self.keep_prob)
+        #dropout
+        #h = tf.nn.dropout(h, self.keep_prob)
+        self.regularization = regul
         
-            # dense layers
-            with tf.variable_scope("hidden"):
-                w = tf.get_variable('w', [self.n_lstm_dim_layers[-1], self.n_dense_dim_layers[0]], dtype = tf.float32, \
-                                    initializer=tf.contrib.layers.xavier_initializer())
-                #w = tf.Variable(tf.random_normal([self.N_LSTM_DIM, 128],\
-                #            stddev=math.sqrt(2.0/self.N_LSTM_DIM)))
-                b = tf.Variable(tf.zeros( [self.n_dense_dim_layers[0]] ))
-                h = tf.matmul(last_hidden, w) + b
-                h = tf.nn.relu( h )
-
-                self.regularization = tf.nn.l2_loss(w)
-            #dropout
-            h = tf.nn.dropout(h, self.keep_prob)
+        with tf.variable_scope("output"):
+            w = tf.get_variable('w', shape=[n_dense_dim_layers[-1], 1],\
+                                     initializer=tf.contrib.layers.xavier_initializer())
+            b = tf.Variable(tf.zeros([ 1 ]))
             
-            for i in range(1, len(n_dense_dim_layers)):
-                with tf.variable_scope("hidden"+str(i)):
-                    w = tf.get_variable('w', [self.n_dense_dim_layers[i-1], self.n_dense_dim_layers[i]],\
-                                    initializer=tf.contrib.layers.xavier_initializer())
-                    b = tf.Variable(tf.zeros( self.n_dense_dim_layers[i] ))
-                    h = tf.matmul(h, w) + b
-                    h = tf.nn.relu( h )
-
-                #self.regularization += tf.nn.l2_loss(w)
-               
-            with tf.variable_scope("output"):
-                w = tf.get_variable('w', shape=[self.n_dense_dim_layers[-1], 1],\
-                                    initializer=tf.contrib.layers.xavier_initializer())
-                b = tf.Variable(tf.zeros( [ 1 ] ))
-                
-                self.py = tf.matmul(h, w) + b
+            self.py = tf.matmul(h, w) + b
+            self.regularization += tf.nn.l2_loss(w)
             
-            #self.regularization += tf.nn.l2_loss(w)
-            
+        # TO DO: prediction merge, self attetion, mixture of expert
+        
 
     def train_ini(self):  
-        
         # loss function 
-        self.cost = tf.reduce_mean( tf.square(self.y - self.py) ) + self.L2*self.regularization
+        self.cost = tf.reduce_mean( tf.square(self.y - self.py) ) + self.L2 * self.regularization
         
         self.optimizer = \
         tf.train.AdamOptimizer(learning_rate = self.LEARNING_RATE).minimize(self.cost)  
@@ -334,10 +306,105 @@ class tsLSTM_seperate_mv():
                                                 })
     
     
+# ---- multi-variate RNN ----
+
+class tsLSTM_mv():
+    
+    
+    def __init__(self, n_dense_dim_layers, n_lstm_dim_layers, n_steps, n_data_dim, session,\
+                 lr, l2, max_norm , n_batch_size, bool_residual ):
+        
+        self.LEARNING_RATE = lr
+        self.L2 =  l2
+        
+        self.n_lstm_dim_layers = n_lstm_dim_layers
+        
+        self.N_STEPS    = n_steps
+        self.N_DATA_DIM = n_data_dim
+        
+        self.n_dense_dim_layers = n_dense_dim_layers
+        self.n_batch_size       = n_batch_size
+        
+        # placeholders
+        self.x = tf.placeholder(tf.float32, [None, self.N_STEPS, self.N_DATA_DIM])
+        self.y = tf.placeholder(tf.float32, [None, 1])
+        self.keep_prob = tf.placeholder(tf.float32)
+        
+        # begin to build the graph
+        self.sess = session
+        
+        if bool_residual:
+            
+            with tf.variable_scope('lstm'):
+                lstm_cell = MyBasicLSTMCell(96)
+                #, initializer= tf.contrib.keras.initializers.glorot_normal()
+                h, state = tf.nn.dynamic_rnn(cell = lstm_cell, inputs = self.x, dtype = tf.float32)
+            
+            
+            # obtain the last hidden state    
+            tmp_hiddens = tf.transpose( h, [1,0,2]  )
+            h = tmp_hiddens[-1]
+            
+            
+            #dropout
+            #h = tf.nn.dropout(h, self.keep_prob)
+            
+            h, regul = res_dense( h, n_lstm_dim_layers[0], n_dense_dim_layers[0], len(n_dense_dim_layers), 'dense',\
+                                  self.keep_prob )
+            
+        #dropout
+        #last_hidden = tf.nn.dropout(last_hidden, self.keep_prob)
+        
+        with tf.variable_scope("output"):
+            
+            w = tf.get_variable('w', shape=[n_dense_dim_layers[-1], 1],\
+                                     initializer=tf.contrib.layers.xavier_initializer())
+            b = tf.Variable(tf.zeros( [ 1 ] ))
+            
+            self.py = tf.matmul(h, w) + b
+            self.regularization = regul + tf.nn.l2_loss(w)
+            
+
+    def train_ini(self):  
+        # loss function 
+        self.cost = tf.reduce_mean( tf.square(self.y - self.py) ) + self.L2*self.regularization
+        
+        self.optimizer = \
+        tf.train.AdamOptimizer(learning_rate = self.LEARNING_RATE).minimize(self.cost)  
+#         tf.train.AdamOptimizer(learning_rate = self.LEARNING_RATE).minimize(self.cost)  
+#         !! same lr, converge faster
+#         tf.train.AdadeltaOptimizer(learning_rate = self.LEARNING_RATE).minimize(self.cost)
+#         tf.train.RMSPropOptimizer(learning_rate = self.LEARNING_RATE).minimize(self.cost)
+#         tf.train.RMSPropOptimizer(learning_rate = self.lr).minimize(self.cost)
+#         tf.train.AdadeltaOptimizer(learning_rate = self.lr).minimize(self.cost)
+#         tf.train.GradientDescentOptimizer(learning_rate = self.lr).minimize(self.cost)
+        
+        self.init = tf.global_variables_initializer()
+        self.sess.run( [self.init] )
+        
+        
+    def train_batch(self, x_batch, y_batch, keep_prob ):
+        _, c = self.sess.run([self.optimizer, self.cost],\
+                              feed_dict={self.x:x_batch, self.y:y_batch, self.keep_prob:keep_prob })
+        return c
+
+#   initialize inference         
+    def inference_ini(self):
+#       denormalzied RMSE  
+        self.rmse = tf.sqrt( tf.reduce_mean( tf.square( self.y - self.py ) ) )
+        self.y_hat= self.py
+        
+#   infer givn testing data    
+    def inference(self, x_test, y_test, keep_prob):
+        return self.sess.run([self.rmse],  feed_dict = {self.x:x_test, self.y:y_test, self.keep_prob:keep_prob})
+    
+    def predict(self, x_test, y_test, keep_prob):
+        return self.sess.run([self.y_hat], feed_dict = {self.x:x_test, self.y:y_test, self.keep_prob:keep_prob})
     
     
     
-# --- main function ---    
+# ---- training process ----
+
 if __name__ == '__main__':
     
     dataset_str = str(sys.argv[1])
@@ -383,8 +450,10 @@ if __name__ == '__main__':
     para_input_dim = np.shape(xtrain)[-1]
     para_win_size =  np.shape(xtrain)[1]
     
-    para_lstm_dims   = [64, 64, 64]
+    # if residual layers are used, keep all dimensions the same 
+    para_lstm_dims   = [96, 96, 96]
     para_dense_dims  = [32, 32]
+
 
     para_lr = 0.001
     para_batch_size = 128
@@ -403,9 +472,19 @@ if __name__ == '__main__':
     
     with tf.Session() as sess:
         
-        reg = tsLSTM_discriminative(para_dense_dims, para_lstm_dims, \
-                                    para_win_size,   para_input_dim, sess, \
-                                    para_lr, para_l2,para_max_norm, para_batch_size, para_bool_residual)
+        #reg = tsLSTM_discriminative(para_dense_dims, para_lstm_dims, \
+        #                            para_win_size,   para_input_dim, sess, \
+        #                            para_lr, para_l2,para_max_norm, para_batch_size, para_bool_residual)
+        
+                
+        reg = tsLSTM_seperate_mv(para_dense_dims, para_lstm_dims, \
+                                 para_win_size,   para_input_dim, sess, \
+                                 para_lr, para_l2,para_max_norm, para_batch_size)
+        
+        #reg = tsLSTM_mv(para_dense_dims, para_lstm_dims, \
+        #                         para_win_size,   para_input_dim, sess, \
+        #                         para_lr, para_l2,para_max_norm, para_batch_size, para_bool_residual)
+        
         
         
         

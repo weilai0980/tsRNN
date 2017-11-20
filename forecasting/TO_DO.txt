@@ -6,10 +6,13 @@
 # stateful training
 # multivariate time series
 
+concatenaed RNN
+indiviudal RNN
+residual rnn high way layers
 
-residual rnn
-high way layers
 
+
+attention 
 
 air pollution data: heterogenous 
 
@@ -36,7 +39,10 @@ gcForest
 large regularization
 
 
-
+experiments:
+For causal work:
+classification dataset
+Wafer: Sensor data collected during the manufacture of semiconductor microelectronics, where the time series are labeled as normal or abnormal.
 
 
 
