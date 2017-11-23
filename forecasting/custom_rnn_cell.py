@@ -479,7 +479,7 @@ class MyLSTMCell(RNNCell):
 
 
 
-def _my_linear(args,
+def _mv_linear(args,
             output_size,
             bias,
             bias_initializer=None,
@@ -552,12 +552,11 @@ def _my_linear(args,
     trans_input = array_ops.transpose(tmp_input, [1,0])
     res_mv = []
     for k in range(input_dim):
-        res_mv.append( math_ops.matmul(trans_input[k], weights_mv_input[k]) )
+        res_mv.append( math_ops.matmul( expand_dims(trans_input[k],1), expand_dims(1,weights_mv_input[k])) )
     res_mv = array_ops.concat(res_mv, 1)
     
     tmp_h = args[1]
     blk_h = array_ops.split( tmp_h, num_or_size_splits = input_dim, axis=1)
-    
     res_h = []
     for k in range(len(blk_h)):
         res_h.append( math_ops.matmul(blk_h[k], weights_mv_trans[k]) )
@@ -580,7 +579,7 @@ def _my_linear(args,
     return nn_ops.bias_add(res, biases)
 # i, j, f, o
 
-class MyBasicLSTMCell(RNNCell):
+class MvLSTMCell(RNNCell):
   """Basic LSTM recurrent network cell.
   The implementation is based on: http://arxiv.org/abs/1409.2329.
   We add forget_bias (default: 1) to the biases of the forget gate in order to
@@ -651,7 +650,7 @@ class MyBasicLSTMCell(RNNCell):
       c, h = array_ops.split(value=state, num_or_size_splits=2, axis=1)
 
     if self._linear is None:
-      self._linear = _linear([inputs, h], 4 * self._num_units, True)  
+      self._linear = _mv_linear([inputs, h], 4 * self._num_units, True)  
       #?  
       #self._linear = _Linear([inputs, h], 4 * self._num_units, True)
     

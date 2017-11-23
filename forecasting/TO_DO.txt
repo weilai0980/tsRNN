@@ -10,7 +10,7 @@ concatenaed RNN
 indiviudal RNN
 residual rnn high way layers
 
-
+mixed effect in temporal data 
 
 attention 
 
