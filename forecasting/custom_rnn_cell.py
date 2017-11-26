@@ -550,16 +550,24 @@ def _mv_linear(args,
     weights_mv_trans = array_ops.reshape( weights_mv_trans, [input_dim, per_dim, per_dim] )
     
     trans_input = array_ops.transpose(tmp_input, [1,0])
-    res_mv = []
-    for k in range(input_dim):
-        res_mv.append( math_ops.matmul( expand_dims(trans_input[k],1), expand_dims(1,weights_mv_input[k])) )
-    res_mv = array_ops.concat(res_mv, 1)
     
     tmp_h = args[1]
     blk_h = array_ops.split( tmp_h, num_or_size_splits = input_dim, axis=1)
+    blk_h = array_ops.stack( blk_h, 2)
+    blk_h = array_ops.transpose( blk_h, [2, 0,1])
+    #blk_h = array_ops.reshape( blk_h, [-1, per_dim])
+    
+    #res_h = math_ops.matmul(blk_h, weights_mv_trans[k]
     res_h = []
-    for k in range(len(blk_h)):
-        res_h.append( math_ops.matmul(blk_h[k], weights_mv_trans[k]) )
+    res_mv = []
+    for k in range(input_dim):
+        res_mv.append( math_ops.matmul(array_ops.expand_dims(trans_input[k],1), array_ops.expand_dims(weights_mv_input[k],0)))
+        res_h.append( math_ops.matmul(blk_h[k], weights_mv_trans[k]) )                    
+                            
+    res_mv = array_ops.concat(res_mv, 1)
+    #for k in range(input_dim):
+    #    res_h.append( math_ops.matmul(blk_h[k], weights_mv_trans[k]) )
+    #blk_h = array_ops.transpose( blk_h, [2, 0,1])
     res_h = array_ops.concat(res_h, 1)
     
     res = array_ops.concat([res, res_mv+res_h], 1)
@@ -591,7 +599,7 @@ class MvLSTMCell(RNNCell):
   """
 
   def __init__(self, num_units, forget_bias=1.0,
-               state_is_tuple=True, activation=None, reuse=None):
+               state_is_tuple=True, activation=None, reuse=None, dim_per_var):
     """Initialize the basic LSTM cell.
     Args:
       num_units: int, The number of units in the LSTM cell.
@@ -608,7 +616,7 @@ class MvLSTMCell(RNNCell):
       When restoring from CudnnLSTM-trained checkpoints, must use
       CudnnCompatibleLSTMCell instead.
     """
-    super(MyBasicLSTMCell, self).__init__(_reuse=reuse)
+    super(MvLSTMCell, self).__init__(_reuse=reuse)
     if not state_is_tuple:
       logging.warn("%s: Using a concatenated state is slower and will soon be "
                    "deprecated.  Use state_is_tuple=True.", self)

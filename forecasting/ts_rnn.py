@@ -108,8 +108,21 @@ def plain_dense( x, x_dim, dim_layers, scope, dropout_keep_prob):
                 regularization += tf.nn.l2_loss(w)
         
         return h, regularization
-         
-#---- residual RNN ----
+
+    
+#---- Attention ----
+
+def self_attention_temporal( h_list ):
+    return 0
+    
+    
+    
+def attention_variate( ):
+    return 0
+    
+    
+    
+#---- plain RNN ----
 
 class tsLSTM_discriminative():
     
@@ -336,7 +349,7 @@ class tsLSTM_mv():
         if bool_residual:
             
             with tf.variable_scope('lstm'):
-                lstm_cell = MyBasicLSTMCell(96)
+                lstm_cell = MvLSTMCell(120)
                 #, initializer= tf.contrib.keras.initializers.glorot_normal()
                 h, state = tf.nn.dynamic_rnn(cell = lstm_cell, inputs = self.x, dtype = tf.float32)
             
@@ -360,8 +373,9 @@ class tsLSTM_mv():
             w = tf.get_variable('w', shape=[n_dense_dim_layers[-1], 1],\
                                      initializer=tf.contrib.layers.xavier_initializer())
             b = tf.Variable(tf.zeros( [ 1 ] ))
-            
             self.py = tf.matmul(h, w) + b
+            
+            
             self.regularization = regul + tf.nn.l2_loss(w)
             
 
@@ -402,7 +416,8 @@ class tsLSTM_mv():
         return self.sess.run([self.y_hat], feed_dict = {self.x:x_test, self.y:y_test, self.keep_prob:keep_prob})
     
     
-    
+'''
+
 # ---- training process ----
 
 if __name__ == '__main__':
@@ -451,14 +466,15 @@ if __name__ == '__main__':
     para_win_size =  np.shape(xtrain)[1]
     
     # if residual layers are used, keep all dimensions the same 
-    para_lstm_dims   = [96, 96, 96]
-    para_dense_dims  = [32, 32]
+    para_lstm_dims   = [120, 120, 120]
+    #para_lstm_dims   = [96, 96, 96]
+    para_dense_dims  = [32, 32, 32]
 
 
     para_lr = 0.001
     para_batch_size = 128
     
-    para_l2 = 0.001
+    para_l2 = 0.008
     para_max_norm = 0.0
     para_keep_prob = 0.8
 
@@ -477,13 +493,13 @@ if __name__ == '__main__':
         #                            para_lr, para_l2,para_max_norm, para_batch_size, para_bool_residual)
         
                 
-        reg = tsLSTM_seperate_mv(para_dense_dims, para_lstm_dims, \
-                                 para_win_size,   para_input_dim, sess, \
-                                 para_lr, para_l2,para_max_norm, para_batch_size)
-        
-        #reg = tsLSTM_mv(para_dense_dims, para_lstm_dims, \
+        #reg = tsLSTM_seperate_mv(para_dense_dims, para_lstm_dims, \
         #                         para_win_size,   para_input_dim, sess, \
-        #                         para_lr, para_l2,para_max_norm, para_batch_size, para_bool_residual)
+        #                         para_lr, para_l2,para_max_norm, para_batch_size)
+        
+        reg = tsLSTM_mv(para_dense_dims, para_lstm_dims, \
+                                 para_win_size,   para_input_dim, sess, \
+                                 para_lr, para_l2,para_max_norm, para_batch_size, para_bool_residual)
         
         
         
@@ -527,4 +543,4 @@ if __name__ == '__main__':
         
         print "Optimization Finished!"
         
-        
+'''
