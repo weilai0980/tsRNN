@@ -10,16 +10,13 @@ concatenaed RNN
 indiviudal RNN
 residual rnn high way layers
 
---- To do ---
-
 dim_per_var 
+
+--- To do ---
 
 attention
 
-
-mixed effect in temporal data 
-
-attention 
+mixed effect in temporal data  
 
 air pollution data: heterogenous 
 
@@ -31,15 +28,11 @@ causalimpact
 
 # basic model 
 # multivariate time series
-# residual rnn
 # exponeital weighted moving average 
 
-# stateful training
 
-Tensorflow:
-individual multi
 
-RMSE mean, standard errors
+RMSE mean, standard errors, willios rank test, predicive likelihood 
 
 gcForest
 
