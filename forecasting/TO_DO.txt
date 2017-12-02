@@ -14,6 +14,10 @@ dim_per_var
 
 --- To do ---
 
+statistical processing:
+  autocorrelation order
+  
+
 attention
 
 mixed effect in temporal data  
@@ -39,7 +43,11 @@ gcForest
 large regularization
 
 
-experiments:
+order effect: chosen order, automatic detected order  
+
+
+--- experiments:
+
 For causal work:
 classification dataset
 Wafer: Sensor data collected during the manufacture of semiconductor microelectronics, where the time series are labeled as normal or abnormal.

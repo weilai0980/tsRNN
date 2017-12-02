@@ -1,5 +1,4 @@
 #!/usr/bin/python
-
 import sys
 
 import collections
@@ -11,7 +10,7 @@ from tensorflow.python.ops.rnn_cell_impl import *
 
 # local 
 from custom_rnn_cell import *
-from ts_rnn import *
+from ts_mv_rnn import *
 from utils_libs import *
 
 
@@ -60,26 +59,48 @@ if __name__ == '__main__':
         text_file.close()
 
 # --- network set-up ---
+    
+    # fixed
     para_input_dim = np.shape(xtrain)[-1]
     para_win_size =  np.shape(xtrain)[1]
     
-    # if residual layers are used, keep all dimensions the same 
-    para_lstm_dims   = [120, 120, 120]
-    #para_lstm_dims   = [96, 96, 96]
-
-    para_dense_dims  = [32, 32]
-
-    para_lr = 0.001
-    para_batch_size = 128
-    
-    para_l2 = 0.005
     para_max_norm = 0.0
-    para_keep_prob = 0.8
-
     para_is_stateful = False
     para_n_epoch = 500
     para_bool_residual = True
+    
+    # plain
+    # if residual layers are used, keep all dimensions the same 
+    para_lstm_dims_plain = [96, 96, 96]
+    para_dense_dims_plain = [32, 32, 32]
 
+    para_lr_plain = 0.001
+    para_batch_size_plain = 64
+    
+    para_l2_plain = 0.015
+    para_keep_prob_plain = 0.8
+
+    # seperate
+    para_lstm_dims_sep = [96, 96, 96]
+    para_dense_dims_sep = [32, 32, 32]
+
+    para_lr_sep = 0.001
+    para_batch_size_sep = 64
+    
+    para_l2_sep = 0.015
+    para_keep_prob_sep = 0.8
+    
+    # mv
+    para_lstm_dims_mv = [120, 120, 120]
+    para_dense_dims_mv = [32, 32]
+
+    para_lr_mv = 0.001
+    para_batch_size_mv = 64
+    
+    para_l2_mv = 0.015
+    para_keep_prob_mv = 0.8
+
+    
 #--- build and train the model ---
     
     tf.reset_default_graph()

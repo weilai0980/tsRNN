@@ -16,11 +16,13 @@ from utils_libs import *
     
 # ---- utilities for residual and plain layers ----  
     
-def res_lstm( x, hidden_dim, n_layers, scope):
+def res_lstm(x, hidden_dim, n_layers, scope, dropout_keep_prob):
+    
+    #dropout
+    x = tf.nn.dropout(x, dropout_keep_prob)
     
     with tf.variable_scope(scope):
             #Deep lstm: residual or highway connections 
-            #block: residual connections
             lstm_cell = tf.nn.rnn_cell.LSTMCell(hidden_dim, \
                                                 initializer= tf.contrib.keras.initializers.glorot_normal())
             hiddens, state = tf.nn.dynamic_rnn(cell = lstm_cell, inputs = x, dtype = tf.float32)
@@ -38,11 +40,12 @@ def res_lstm( x, hidden_dim, n_layers, scope):
              
     return hiddens, state
 
-def plain_lstm_stacked( x, dim_layers, scope):
+def plain_lstm_stacked(x, dim_layers, scope, dropout_keep_prob):
+    
+    #dropout
+    x = tf.nn.dropout(x, dropout_keep_prob)
     
     with tf.variable_scope(scope):
-        #Deep lstm: residual or highway connections 
-        #block: residual connections
         lstm_cell = tf.nn.rnn_cell.LSTMCell(dim_layers[0], \
                                                 initializer= tf.contrib.keras.initializers.glorot_normal())
         hiddens, state = tf.nn.dynamic_rnn(cell = lstm_cell, inputs = x, dtype = tf.float32)
@@ -56,7 +59,10 @@ def plain_lstm_stacked( x, dim_layers, scope):
     return hiddens 
 
     
-def res_dense( x, x_dim, hidden_dim, n_layers, scope, dropout_keep_prob):
+def res_dense(x, x_dim, hidden_dim, n_layers, scope, dropout_keep_prob):
+    
+        #dropout
+        x = tf.nn.dropout(x, dropout_keep_prob)
         
         with tf.variable_scope(scope):
                 # initilization
@@ -84,7 +90,10 @@ def res_dense( x, x_dim, hidden_dim, n_layers, scope, dropout_keep_prob):
         
         return h, regularization
     
-def plain_dense( x, x_dim, dim_layers, scope, dropout_keep_prob):
+def plain_dense(x, x_dim, dim_layers, scope, dropout_keep_prob):
+    
+        #dropout
+        x = tf.nn.dropout(x, dropout_keep_prob)
         
         with tf.variable_scope(scope):
                 # initilization
@@ -124,7 +133,7 @@ def attention_variate( ):
     
 #---- plain RNN ----
 
-class tsLSTM_discriminative():
+class tsLSTM_plain():
     
     
     def __init__(self, n_dense_dim_layers, n_lstm_dim_layers, n_steps, n_data_dim, session,\
@@ -155,15 +164,11 @@ class tsLSTM_discriminative():
             tmp_hiddens = tf.transpose( h, [1,0,2]  )
             h = tmp_hiddens[-1]
             
-            #dropout
-            #h = tf.nn.dropout(h, self.keep_prob)
-            
             h, regul = res_dense( h, n_lstm_dim_layers[0], n_dense_dim_layers[0], len(n_dense_dim_layers), 'dense',\
                                   self.keep_prob )
             
         #dropout
         #last_hidden = tf.nn.dropout(last_hidden, self.keep_prob)
-        
         with tf.variable_scope("output"):
             
             w = tf.get_variable('w', shape=[n_dense_dim_layers[-1], 1],\
@@ -256,14 +261,12 @@ class tsLSTM_seperate_mv():
          
         # hidden space merge
         h = tf.concat(concat_h, 1)
-        #dropout
-        #h = tf.nn.dropout(h, self.keep_prob)
         
         h, regul = plain_dense(h, n_lstm_dim_layers[-1]*self.N_DATA_DIM, n_dense_dim_layers, 'dense', self.keep_prob)
-        #dropout
-        #h = tf.nn.dropout(h, self.keep_prob)
         self.regularization = regul
         
+        #dropout
+        #h = tf.nn.dropout(h, self.keep_prob)
         with tf.variable_scope("output"):
             w = tf.get_variable('w', shape=[n_dense_dim_layers[-1], 1],\
                                      initializer=tf.contrib.layers.xavier_initializer())
@@ -318,11 +321,9 @@ class tsLSTM_seperate_mv():
                                                 self.keep_prob:keep_prob\
                                                 })
     
-    
 # ---- multi-variate RNN ----
 
 class tsLSTM_mv():
-    
     
     def __init__(self, n_dense_dim_layers, n_lstm_dim_layers, n_steps, n_data_dim, session,\
                  lr, l2, max_norm , n_batch_size, bool_residual ):
@@ -353,21 +354,15 @@ class tsLSTM_mv():
                 #, initializer= tf.contrib.keras.initializers.glorot_normal()
                 h, state = tf.nn.dynamic_rnn(cell = lstm_cell, inputs = self.x, dtype = tf.float32)
             
-            
             # obtain the last hidden state    
             tmp_hiddens = tf.transpose( h, [1,0,2]  )
             h = tmp_hiddens[-1]
-            
-            
-            #dropout
-            #h = tf.nn.dropout(h, self.keep_prob)
             
             h, regul = res_dense( h, n_lstm_dim_layers[0], n_dense_dim_layers[0], len(n_dense_dim_layers), 'dense',\
                                   self.keep_prob )
             
         #dropout
         #last_hidden = tf.nn.dropout(last_hidden, self.keep_prob)
-        
         with tf.variable_scope("output"):
             
             w = tf.get_variable('w', shape=[n_dense_dim_layers[-1], 1],\
@@ -415,9 +410,7 @@ class tsLSTM_mv():
     def predict(self, x_test, y_test, keep_prob):
         return self.sess.run([self.y_hat], feed_dict = {self.x:x_test, self.y:y_test, self.keep_prob:keep_prob})
     
-    
 '''
-
 # ---- training process ----
 
 if __name__ == '__main__':
@@ -500,9 +493,6 @@ if __name__ == '__main__':
         reg = tsLSTM_mv(para_dense_dims, para_lstm_dims, \
                                  para_win_size,   para_input_dim, sess, \
                                  para_lr, para_l2,para_max_norm, para_batch_size, para_bool_residual)
-        
-        
-        
         
         # initialize the network
         reg.train_ini()

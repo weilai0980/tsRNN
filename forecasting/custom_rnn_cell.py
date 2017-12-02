@@ -184,7 +184,7 @@ def _linear(args,
     return nn_ops.bias_add(res, biases)
 
 
-class MyGRUCell(RNNCell):
+class MvGRUCell(RNNCell):
   """Gated Recurrent Unit cell (cf. http://arxiv.org/abs/1406.1078).
   Args:
     num_units: int, The number of units in the GRU cell.
@@ -274,7 +274,7 @@ class MyGRUCell(RNNCell):
 
 
 
-class MyLSTMCell(RNNCell):
+class _LSTMCell(RNNCell):
   """Long short-term memory unit (LSTM) recurrent network cell.
   The default non-peephole implementation is based on:
     http://www.bioinf.jku.at/publications/older/2604.pdf
