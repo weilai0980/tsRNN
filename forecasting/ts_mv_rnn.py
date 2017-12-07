@@ -121,14 +121,37 @@ def plain_dense(x, x_dim, dim_layers, scope, dropout_keep_prob):
     
 #---- Attention ----
 
-def self_attention_temporal( h_list ):
+# ref: a structured self attentive sentence embedding  
+def attention_sequential( h, h_dim, hh_dim, scope ):
+    # tf.tensordot
+    with tf.variable_scope(scope):
+        
+        w = tf.get_variable('w', [h_dim, hh_dim],initializer=tf.contrib.layers.xavier_initializer())
+        tmp_h = tf.nn.relu( tf.tensordot(h, w, axes=1) )
+
+        w_logit = tf.get_variable('w_log', [hh_dim, 1], initializer=tf.contrib.layers.xavier_initializer())
+        logit = tf.tensordot(tmp_h, w_logit, axes=1)
+        
+        alphas = tf.nn.softmax(logit)
+        
+    return tf.reduce_sum(h*tf.expand_dims(alphas, -1), 1)
+    
+
+# shape of h_list: [#variate, batch_size, steps, dim]
+def attention_variate_softmax( h_list, h_dim_list, hh_dim_list, scope ):
+    
+    hh = []
+    for i in range(len(h_list)):
+        hh.append( attention_sequential(h_list[i], h_dim_list[i], hh_dim_list[i], scope+str(i)) )
+    
+    #shape of hh: [#variate, batch_size, h_dim]
+    hh = tf.stack(hh, 0)
+    hh = tf.transpose(hh, [1, 0, 2])
+    
+    return attention_sequential( hh, h_dim, hh_dim, scope )
+
+def attention_variate_sigmoid():
     return 0
-    
-    
-    
-def attention_variate( ):
-    return 0
-    
     
     
 #---- plain RNN ----

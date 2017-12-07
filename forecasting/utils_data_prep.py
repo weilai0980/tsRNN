@@ -98,6 +98,27 @@ def instance_extraction_multiple_one( list_target, list_indepen, win_size, is_st
         
     return listX, listY
 
+def instance_extraction_multiple_one_separate_target( list_target, list_indepen, win_size, is_stateful ):
+    
+    n = len(list_target)
+    if n < win_size:
+        print "ERROR: SIZE"
+        return
+    
+    listX = []
+    listY_his = []
+    listY = []
+ 
+    for i in range(win_size, n):
+        tmp  = list_indepen[i-win_size:i+1]
+        tmp1 = list_target[i-win_size:i]
+                    
+        listX.append(tmp)
+        listY_his.append(tmp1)
+        listY.append(list_target[i])
+        
+    return listX, listY_his, listY
+
 
 
 def y_normalization( ylist ):
