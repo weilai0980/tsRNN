@@ -68,6 +68,7 @@ if __name__ == '__main__':
     para_is_stateful = False
     para_n_epoch = 500
     para_bool_residual = True
+    para_bool_attention = True
     
     # plain
     # if residual layers are used, keep all dimensions the same 
@@ -78,7 +79,7 @@ if __name__ == '__main__':
     para_batch_size_plain = 64
     
     para_l2_plain = 0.015
-    para_keep_prob_plain = 0.8
+    para_keep_prob_plain = 1.0
 
     # seperate
     para_lstm_dims_sep = [96, 96, 96]
@@ -108,12 +109,16 @@ if __name__ == '__main__':
     with tf.Session() as sess:
         
         if method_str == 'rnn':
-            reg = tsLSTM_discriminative(para_dense_dims, para_lstm_dims, \
-                                    para_win_size,   para_input_dim, sess, \
-                                    para_lr, para_l2,para_max_norm, para_batch_size, para_bool_residual)
+            reg = tsLSTM_plain(para_dense_dims_plain, para_lstm_dims_plain, \
+                                    para_win_size, para_input_dim, sess, \
+                                    para_lr_plain, para_l2_plain, para_max_norm, para_batch_size_plain, \
+                                    para_bool_residual, para_bool_attention)
             
             log_file += "_plain.txt"
             model_file += "_plain-{epoch:02d}.hdf5"
+            
+            para_batch_size = para_batch_size_plain
+            para_keep_prob = para_keep_prob_plain
             
         elif method_str == 'sep':
             reg = tsLSTM_seperate_mv(para_dense_dims, para_lstm_dims, \
@@ -121,6 +126,9 @@ if __name__ == '__main__':
                                  para_lr, para_l2,para_max_norm, para_batch_size)
             log_file += "_sep.txt"
             model_file += "_sep-{epoch:02d}.hdf5"
+            
+            para_batch_size = para_batch_size_sep
+            para_keep_prob = para_keep_prob_sep
         
         elif method_str == 'mv':
             reg = tsLSTM_mv(para_dense_dims, para_lstm_dims, \
@@ -128,6 +136,9 @@ if __name__ == '__main__':
                                  para_lr, para_l2,para_max_norm, para_batch_size, para_bool_residual)
             log_file += "_mv.txt"
             model_file += "_mv-{epoch:02d}.hdf5"
+            
+            para_batch_size = para_batch_size_mv
+            para_keep_prob = para_keep_prob_mv
         
         
         # initialize the network
@@ -160,7 +171,9 @@ if __name__ == '__main__':
             tmp_train_acc = reg.inference( xtrain,ytrain, para_keep_prob)
             
             print "At epoch %d: loss %f, train %f, test %f\n" % ( epoch, tmpc*1.0/total_iter, \
-                                                                  tmp_train_acc[0], tmp_test_acc[0] )  
+                                                                  tmp_train_acc[0], tmp_test_acc[0] ) 
+            
+            print reg.test_attention(xtest[:2], ytest[:2],  para_keep_prob)
             
             with open(log_file, "a") as text_file:
                     text_file.write("At epoch %d: loss %f, train %f, test %f\n" % ( epoch, tmpc*1.0/total_iter, \

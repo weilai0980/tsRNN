@@ -17,6 +17,8 @@ dim_per_var
 statistical processing:
   autocorrelation order
 
+model saver
+
 some improvements on memory moduel in LSTM 
 
 attention
