@@ -53,12 +53,11 @@ if __name__ == '__main__':
 # --- training log --- 
     log_file   = "res/rnn"
     model_file = "res/model/rnn"
+    attention_file = "res/att"
 
-#   clean logs
-    with open(log_file, "w") as text_file:
-        text_file.close()
 
 # --- network set-up ---
+    # if residual layers are used, keep all dimensions the same 
     
     # fixed
     para_input_dim = np.shape(xtrain)[-1]
@@ -67,23 +66,28 @@ if __name__ == '__main__':
     para_max_norm = 0.0
     para_is_stateful = False
     para_n_epoch = 500
-    para_bool_residual = True
+    para_bool_residual = False
     para_bool_attention = True
     
-    # plain
-    # if residual layers are used, keep all dimensions the same 
-    para_lstm_dims_plain = [96, 96, 96]
-    para_dense_dims_plain = [32, 32, 32]
+    # -- plain
+    para_lstm_dims_plain = [96]
+    #[96, 96, 96]
+    para_dense_dims_plain = [32, 16, 8]
+    #[32, 32, 32]
 
-    para_lr_plain = 0.001
+    para_lr_plain = 0.002
+    #0.01
     para_batch_size_plain = 64
     
-    para_l2_plain = 0.015
+    para_l2_plain = 0.01
+    #0.02
     para_keep_prob_plain = 1.0
 
-    # seperate
-    para_lstm_dims_sep = [96, 96, 96]
-    para_dense_dims_sep = [32, 32, 32]
+    # -- seperate
+    para_lstm_dims_sep = [96]
+    #[96, 96, 96]
+    para_dense_dims_sep = [32, 16, 8]
+    #[32, 32, 32]
 
     para_lr_sep = 0.001
     para_batch_size_sep = 64
@@ -91,7 +95,7 @@ if __name__ == '__main__':
     para_l2_sep = 0.015
     para_keep_prob_sep = 0.8
     
-    # mv
+    # -- mv
     para_lstm_dims_mv = [120, 120, 120]
     para_dense_dims_mv = [32, 32]
 
@@ -100,7 +104,6 @@ if __name__ == '__main__':
     
     para_l2_mv = 0.015
     para_keep_prob_mv = 0.8
-
     
 #--- build and train the model ---
     
@@ -108,7 +111,7 @@ if __name__ == '__main__':
     
     with tf.Session() as sess:
         
-        if method_str == 'rnn':
+        if method_str == 'plain':
             reg = tsLSTM_plain(para_dense_dims_plain, para_lstm_dims_plain, \
                                     para_win_size, para_input_dim, sess, \
                                     para_lr_plain, para_l2_plain, para_max_norm, para_batch_size_plain, \
@@ -116,16 +119,21 @@ if __name__ == '__main__':
             
             log_file += "_plain.txt"
             model_file += "_plain-{epoch:02d}.hdf5"
+            attention_file += "_plain.txt"
             
             para_batch_size = para_batch_size_plain
             para_keep_prob = para_keep_prob_plain
             
         elif method_str == 'sep':
-            reg = tsLSTM_seperate_mv(para_dense_dims, para_lstm_dims, \
-                                 para_win_size,   para_input_dim, sess, \
-                                 para_lr, para_l2,para_max_norm, para_batch_size)
+            reg = tsLSTM_seperate_mv(para_dense_dims_sep, para_lstm_dims_sep, \
+                                     para_win_size, para_input_dim, sess, \
+                                     para_lr_sep, para_l2_sep, para_max_norm, para_batch_size_sep, \
+                                     para_bool_attention, para_bool_residual)
+            
+            
             log_file += "_sep.txt"
             model_file += "_sep-{epoch:02d}.hdf5"
+            attention_file += "_sep.txt"
             
             para_batch_size = para_batch_size_sep
             para_keep_prob = para_keep_prob_sep
@@ -134,12 +142,20 @@ if __name__ == '__main__':
             reg = tsLSTM_mv(para_dense_dims, para_lstm_dims, \
                                  para_win_size,   para_input_dim, sess, \
                                  para_lr, para_l2,para_max_norm, para_batch_size, para_bool_residual)
+            
             log_file += "_mv.txt"
             model_file += "_mv-{epoch:02d}.hdf5"
+            attention_file += "_mv.txt"
             
             para_batch_size = para_batch_size_mv
             para_keep_prob = para_keep_prob_mv
         
+        #   clean logs
+        with open(log_file, "w") as text_file:
+            text_file.close()
+            
+        with open(attention_file, "w") as text_file:
+            text_file.close()
         
         # initialize the network
         reg.train_ini()
@@ -173,13 +189,13 @@ if __name__ == '__main__':
             print "At epoch %d: loss %f, train %f, test %f\n" % ( epoch, tmpc*1.0/total_iter, \
                                                                   tmp_train_acc[0], tmp_test_acc[0] ) 
             
-            print reg.test_attention(xtest[:2], ytest[:2],  para_keep_prob)
+            if para_bool_attention == True:
+                with open(attention_file, "a") as text_file:
+                    text_file.write("-- At epoch %d: %s \n" % (epoch, \
+                                                           str(reg.test_attention(xtest[:1], ytest[:1], para_keep_prob)))) 
             
             with open(log_file, "a") as text_file:
-                    text_file.write("At epoch %d: loss %f, train %f, test %f\n" % ( epoch, tmpc*1.0/total_iter, \
+                text_file.write("At epoch %d: loss %f, train %f, test %f\n" % ( epoch, tmpc*1.0/total_iter, \
                                                                                    tmp_train_acc[0], tmp_test_acc[0] ))  
         
-        
         print "Optimization Finished!"
-        
-        

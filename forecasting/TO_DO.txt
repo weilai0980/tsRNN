@@ -14,6 +14,10 @@ dim_per_var
 
 --- To do ---
 
+Computation time 
+
+Time decay: cikm deephawkes paper 
+
 statistical processing:
   autocorrelation order
 

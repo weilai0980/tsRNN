@@ -56,13 +56,13 @@ def plain_lstm(x, dim_layers, scope, dropout_keep_prob):
                                                     initializer= tf.contrib.keras.initializers.glorot_normal())
             hiddens, state = tf.nn.dynamic_rnn(cell = lstm_cell, inputs = hiddens, dtype = tf.float32)
                 
-    return hiddens 
+    return hiddens, state 
 
     
 def res_dense(x, x_dim, hidden_dim, n_layers, scope, dropout_keep_prob):
     
         #dropout
-        x = tf.nn.dropout(x, dropout_keep_prob)
+        #x = tf.nn.dropout(x, dropout_keep_prob)
         
         with tf.variable_scope(scope):
                 # initilization
@@ -93,7 +93,7 @@ def res_dense(x, x_dim, hidden_dim, n_layers, scope, dropout_keep_prob):
 def plain_dense(x, x_dim, dim_layers, scope, dropout_keep_prob):
     
         #dropout
-        x = tf.nn.dropout(x, dropout_keep_prob)
+        #x = tf.nn.dropout(x, dropout_keep_prob)
         
         with tf.variable_scope(scope):
                 # initilization
@@ -119,10 +119,10 @@ def plain_dense(x, x_dim, dim_layers, scope, dropout_keep_prob):
         return h, regularization
 
     
-#---- Attention ----
+#---- Attention plain ----
 
 # ref: a structured self attentive sentence embedding  
-def attention_temporal( h, h_dim, att_dim, scope ):
+def attention_temporal_proj( h, h_dim, att_dim, scope ):
     # tf.tensordot
     with tf.variable_scope(scope):
         
@@ -136,48 +136,43 @@ def attention_temporal( h, h_dim, att_dim, scope ):
         alphas = tf.nn.softmax( tf.squeeze(logit) )
         
     return tf.reduce_sum(h*tf.expand_dims(alphas, -1), 1), alphas
-    
 
-# shape of h_list: [#variate, batch_size, steps, dim]
-def attention_variate_softmax( h_list, h_dim_list, att_dim_list, att_dim_var, scope ):
-    
-    hh = []
-    for i in range(len(h_list)):
-        hh.append( attention_temporal(h_list[i], h_dim_list[i], att_dim_list[i], scope+str(i)) )
-    #shape of hh: [#variate, batch_size, h_dim]
-    
-    v = []
-    for i in range(len(h_list)):
-        with tf.variable_scope(scope+'var'+str(i)):
-            w = tf.get_variable('w', [h_dim_list[i], att_dim_var], initializer=tf.contrib.layers.xavier_initializer())
-            #? add bias?
-            v.append( tf.nn.relu(tf.matmul(hh[i], w)) )
-
-    v = tf.stack(v, 0)
-    v = tf.transpose(v, [1, 0, 2])
-    # v shape [batch, variate, att_dim_var]
-    
-    w_att = tf.get_variable('w_', [att_dim_var, 1], initializer=tf.contrib.layers.xavier_initializer())
-    logit = tf.tensordot(v, w_att, axes=1)
-    alphas = tf.nn.softmax(logit)
-    
-    return attention_on_variate(alphas, h_list, h_dim_list)
-
-def attention_on_variate(alpha, h_list, h_dim_list):
-    bool_equ_dim = True
-    for i in h_dim_list:
-        if i != h_dim_list[0]:
-            bool_equ_dim = False
-    
-    if bool_equ_dim == True:
-        return tf.reduce_sum(h*tf.expand_dims(alpha, -1), 1)
-    else:
-        tmph = []
-        for i in range(len(h_list)):
-            tmph.append( h_list[i]*alpha[i] )
+def attention_temporal_logit( h, h_dim, scope ):
+    # tf.tensordot
+    with tf.variable_scope(scope):
         
-        return tf.concat(tmph, 1)
-   
+        w = tf.get_variable('w', [h_dim, 1], initializer=tf.contrib.layers.xavier_initializer())
+        
+        #? add bias 
+        b = tf.Variable(tf.zeros([1, 1]))
+        #? add nonlinear activiation 
+        logit = tf.squeeze(tf.tensordot(h, w, axes=1))
+        
+        alphas = tf.nn.softmax( tf.squeeze(logit) )
+        
+    return tf.reduce_sum(h*tf.expand_dims(alphas, -1), 1), alphas, tf.nn.l2_loss(w) 
+
+def attention_temporal_logit_context( h, h_dim, scope, step ):
+    # tf.tensordot
+    
+    h_context, h_last = tf.split(h, [step-1, 1], 1)
+    h_last = tf.squeeze(h_last)
+    
+    with tf.variable_scope(scope):
+        
+        w = tf.get_variable('w', [h_dim, 1], initializer=tf.contrib.layers.xavier_initializer())
+        
+        #? add bias 
+        b = tf.Variable(tf.zeros([1, 1]))
+        #? add nonlinear activiation 
+        logit = tf.squeeze(tf.tensordot(h_context, w, axes=1))
+        
+        alphas = tf.nn.softmax( tf.squeeze(logit) )
+        
+        context = tf.reduce_sum(h_context*tf.expand_dims(alphas, -1), 1)
+        
+    return tf.concat([context, h_last], 1), alphas, tf.nn.l2_loss(w) 
+    
     
 #---- plain RNN ----
 
@@ -210,26 +205,41 @@ class tsLSTM_plain():
             h, _ = res_lstm( self.x, n_lstm_dim_layers[0], len(n_lstm_dim_layers), 'lstm', self.keep_prob )
             
             if bool_att == True:
-                h, self.att = attention_temporal( h, n_lstm_dim_layers[0], int(n_lstm_dim_layers[0]/2), 'att' )
+                h, self.att, regu = attention_temporal_logit( h, n_lstm_dim_layers[0], 'att' )
+                h, regul = res_dense( h, n_lstm_dim_layers[0], n_dense_dim_layers[0], len(n_dense_dim_layers), 'dense',\
+                                  self.keep_prob )
+                
+                regu_all = regu + regul 
+            
             else:
                 # obtain the last hidden state    
                 tmp_hiddens = tf.transpose( h, [1,0,2]  )
                 h = tmp_hiddens[-1]
             
-            h, regul = res_dense( h, n_lstm_dim_layers[0], n_dense_dim_layers[0], len(n_dense_dim_layers), 'dense',\
+                h, regul = res_dense( h, n_lstm_dim_layers[0], n_dense_dim_layers[0], len(n_dense_dim_layers), 'dense',\
                                   self.keep_prob )
+                regu_all = regul
+                
         else:
             
-            h, _ = plain_lstm( self.x, n_lstm_dim_layers, 'lstm')
+            h, _ = plain_lstm( self.x, n_lstm_dim_layers, 'lstm', self.keep_prob )
             
-            if bool_att==True:
-                h, self.att = attention_temporal( h, n_lstm_dim_layers[-1], int(n_lstm_dim_layers[-1]/2), 'att' )
+            if bool_att == True:
+                
+                # ?
+                #h, self.att, regu = attention_temporal_logit( h, n_lstm_dim_layers[-1], 'att' )
+                h, self.att, regu = attention_temporal_logit_context( h, n_lstm_dim_layers[-1], 'att', self.N_STEPS )
+                
+                h, regul = plain_dense( h, n_lstm_dim_layers[-1]*2, n_dense_dim_layers, 'dense', self.keep_prob )
+                regu_all = regu + regul 
+            
             else:
                 # obtain the last hidden state
                 tmp_hiddens = tf.transpose( h, [1,0,2]  )
                 h = tmp_hiddens[-1]
-            
-            h, regul = plain_dense( h, n_lstm_dim_layers[-1], n_dense_dim_layers, 'dense', self.keep_prob )
+                
+                h, regul = plain_dense( h, n_lstm_dim_layers[-1], n_dense_dim_layers, 'dense', self.keep_prob )
+                regu_all = regul 
             
         #dropout
         #last_hidden = tf.nn.dropout(last_hidden, self.keep_prob)
@@ -240,7 +250,7 @@ class tsLSTM_plain():
             b = tf.Variable(tf.zeros( [ 1 ] ))
             
             self.py = tf.matmul(h, w) + b
-            self.regularization = regul + tf.nn.l2_loss(w)
+            self.regularization = regu_all + tf.nn.l2_loss(w)
             
     def train_ini(self):  
         
@@ -259,7 +269,6 @@ class tsLSTM_plain():
         
         self.init = tf.global_variables_initializer()
         self.sess.run( [self.init] )
-        
         
     def train_batch(self, x_batch, y_batch, keep_prob ):
         
@@ -283,14 +292,119 @@ class tsLSTM_plain():
     
     def test_attention(self, x_test, y_test, keep_prob):
         return self.sess.run([self.att],  feed_dict = {self.x:x_test, self.y:y_test, self.keep_prob:keep_prob})
+    
+    
+    
+#---- Attention Sep ----
+
+def attention_variate_aggre_hidden(alpha, h_list, h_dim_list):
+    
+    bool_equ_dim = True
+    for i in h_dim_list:
+        if i != h_dim_list[0]:
+            bool_equ_dim = False
+    
+    if bool_equ_dim == True:
+        return tf.reduce_sum(h*tf.expand_dims(alpha, -1), 1)
+    else:
+        tmph = []
+        for i in range(len(h_list)):
+            tmph.append( h_list[i]*alpha[i] )
+        
+        return tf.concat(tmph, 1)
+    
+# shape of h_list: [#variate, batch_size, steps, dim]
+def attention_variate_proj( h_list, h_dim_list, att_dim_list, att_dim_var, scope ):
+    
+    hh = []
+    for i in range(len(h_list)):
+        hh.append( attention_temporal_proj(h_list[i], h_dim_list[i], att_dim_list[i], scope+str(i)) )
+    #shape of hh: [#variate, batch_size, h_dim]
+    
+    v = []
+    for i in range(len(h_list)):
+        with tf.variable_scope(scope+'var'+str(i)):
+            w = tf.get_variable('w', [h_dim_list[i], att_dim_var], initializer=tf.contrib.layers.xavier_initializer())
+            #? add bias?
+            v.append( tf.nn.relu(tf.matmul(hh[i], w)) )
+
+    v = tf.stack(v, 0)
+    v = tf.transpose(v, [1, 0, 2])
+    # v shape [batch, variate, att_dim_var]
+    
+    w_att = tf.get_variable('w_', [att_dim_var, 1], initializer=tf.contrib.layers.xavier_initializer())
+    logit = tf.tensordot(v, w_att, axes=1)
+    alphas = tf.nn.softmax(logit)
+    
+    return attention_variate_aggre_hidden(alphas, h_list, h_dim_list)
+
+
+# attention_temporal_logit( h, h_dim, step, scope ):
+# [#variate, batch_size, steps, dim]
+#assume each time series has the hidden of the same dimension
+def attention_variate_logit( h_list, h_dim, scope, step ):
+    
+    hh = []
+    att = []
+     
+    with tf.variable_scope(scope):
+        w_var = tf.get_variable('w_', [h_dim*2, 1], initializer=tf.contrib.layers.xavier_initializer())
+        b_var = tf.Variable( tf.random_normal([1]) )
+
+        for i in range(len(h_list)):
+            temp_att_feature, temp_att, tmp_regu = attention_temporal_logit_context(h_list[i], h_dim, scope + str(i), step)
+        # [B, 2*D]
+        
+            if i==0:
+                regul = tmp_regu
+            else:
+                regul += tmp_regu
+                
+            var_weight = tf.sigmoid( tf.matmul(temp_att_feature, w_var) + b_var)
+        # [B, 1]
+            var_feature = temp_att_feature*var_weight
+        
+            hh.append(var_feature)
+            att.append(temp_att)
+            
+    #shape of v: [ batch_size, variate*h_dim]
+        v = tf.concat(hh, 1)
+    
+    return v, tf.nn.l2_loss(w_var) + regul, att
+
+#attention_variate_aggre_hidden(alphas, h_list, h_dim_list)
+    
+    '''
+    for i in range(len(h_list)):
         
         
-#---- mulitvariate individual RNN ----
+        with tf.variable_scope(scope+'var'+str(i)):
+        
+         w = tf.get_variable('w', [h_dim, 1], initializer=tf.contrib.layers.xavier_initializer())
+        
+        #? add bias 
+        #b = tf.Variable(tf.zeros([1, 1]))
+        #? add nonlinear activiation 
+        logit = tf.squeeze(tf.tensordot(h, w, axes=1))
+        
+        alphas = tf.nn.softmax( tf.squeeze(logit) )
+        
+        
+        w = tf.get_variable('w', [h_dim_list[i], att_dim_var], initializer=tf.contrib.layers.xavier_initializer())
+            #? add bias?
+            v.append( tf.nn.relu(tf.matmul(hh[i], w)) )
+
+    v = tf.stack(v, 0)
+    v = tf.transpose(v, [1, 0, 2])
+    # v shape [batch, variate, att_dim_var]
+    '''
+        
+#---- mulitvariate separate RNN ----
 
 class tsLSTM_seperate_mv():
     
     def __init__(self, n_dense_dim_layers, n_lstm_dim_layers, n_steps, n_data_dim, session,\
-                 lr, l2, max_norm , n_batch_size ):
+                 lr, l2, max_norm , n_batch_size, bool_att, bool_residual ):
         
         self.LEARNING_RATE = lr
         self.L2 =  l2
@@ -317,18 +431,31 @@ class tsLSTM_seperate_mv():
             
             current_x = indivi_ts[i]
             
-            h, _  = res_lstm( current_x, n_lstm_dim_layers[0], len(n_lstm_dim_layers), 'lstm'+str(i) )
-            # obtain the last hidden state    
-            tmp_hiddens = tf.transpose( h, [1,0,2]  )
-            h = tmp_hiddens[-1]
-            
-            concat_h.append(h)
-         
-        # hidden space merge
-        h = tf.concat(concat_h, 1)
+            if bool_residual == True:
+                h, _  = res_lstm( current_x, n_lstm_dim_layers[0], len(n_lstm_dim_layers), 'lstm'+str(i), self.keep_prob)
+            else:
+                h, _  = plain_lstm( current_x, n_lstm_dim_layers, 'lstm'+str(i), self.keep_prob)
+                
+            if bool_att == True:
+                concat_h.append(h)
+            else:
+                # obtain the last hidden state    
+                tmp_hiddens = tf.transpose( h, [1,0,2]  )
+                h = tmp_hiddens[-1]
+                
+                concat_h.append(h)
         
-        h, regul = plain_dense(h, n_lstm_dim_layers[-1]*self.N_DATA_DIM, n_dense_dim_layers, 'dense', self.keep_prob)
-        self.regularization = regul
+        if bool_att == True:
+            h, regu, self.att = attention_variate_logit( concat_h, n_lstm_dim_layers[-1], 'attention', self.N_STEPS )
+            # dense layers 
+            h, regul = plain_dense(h, n_lstm_dim_layers[-1]*self.N_DATA_DIM*2, n_dense_dim_layers, 'dense', self.keep_prob)
+            self.regularization = regul + regu
+                
+        else:
+            # hidden space merge
+            h = tf.concat(concat_h, 1)
+            h, regul = plain_dense(h, n_lstm_dim_layers[-1]*self.N_DATA_DIM, n_dense_dim_layers, 'dense', self.keep_prob)
+            self.regularization = regul
         
         #dropout
         #h = tf.nn.dropout(h, self.keep_prob)
@@ -340,8 +467,6 @@ class tsLSTM_seperate_mv():
             self.py = tf.matmul(h, w) + b
             self.regularization += tf.nn.l2_loss(w)
             
-        # TO DO: prediction merge, self attetion, mixture of expert
-        
 
     def train_ini(self):  
         # loss function 
@@ -362,14 +487,8 @@ class tsLSTM_seperate_mv():
         self.init = tf.global_variables_initializer()
         self.sess.run( [self.init] )
         
-        
     def train_batch(self, x_batch, y_batch, keep_prob ):
-        
-        _, c = self.sess.run([self.optimizer, self.cost],\
-                                feed_dict={self.x:x_batch,\
-                                           self.y:y_batch,\
-                                           self.keep_prob:keep_prob\
-                                 })
+        _, c = self.sess.run([self.optimizer, self.cost],feed_dict={self.x:x_batch, self.y:y_batch, self.keep_prob:keep_prob})
         return c
 
 #   initialize inference         
@@ -378,13 +497,12 @@ class tsLSTM_seperate_mv():
 #       denormalzied RMSE  
         self.rmse = tf.sqrt( tf.reduce_mean( tf.square( self.y - self.py ) ) )
         
-        
-#   infer givn testing data    
+#   infer givn testing data 
     def inference(self, x_test, y_test, keep_prob):
-        return self.sess.run([self.rmse], feed_dict={self.x:x_test,\
-                                                self.y:y_test,\
-                                                self.keep_prob:keep_prob\
-                                                })
+        return self.sess.run([self.rmse], feed_dict={self.x:x_test, self.y:y_test, self.keep_prob:keep_prob})
+    
+    def test_attention(self, x_test, y_test, keep_prob):
+        return self.sess.run([self.att],  feed_dict = {self.x:x_test, self.y:y_test, self.keep_prob:keep_prob})
     
 # ---- multi-variate RNN ----
 
