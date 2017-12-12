@@ -10,7 +10,7 @@ from tensorflow.python.ops import rnn_cell_impl
 from tensorflow.python.ops.rnn_cell_impl import *
 
 # local 
-from custom_rnn_cell import *
+from mv_rnn_cell import *
 from utils_libs import *
 
     
@@ -359,7 +359,8 @@ def attention_variate_logit( h_list, h_dim, scope, step ):
                 regul = tmp_regu
             else:
                 regul += tmp_regu
-                
+            
+            # ? bias nonlinear activation?
             var_weight = tf.sigmoid( tf.matmul(temp_att_feature, w_var) + b_var)
         # [B, 1]
             var_feature = temp_att_feature*var_weight
@@ -371,6 +372,33 @@ def attention_variate_logit( h_list, h_dim, scope, step ):
         v = tf.concat(hh, 1)
     
     return v, tf.nn.l2_loss(w_var) + regul, att
+
+def attention_variate_logit_speed_up( h_list, h_dim, scope, step ):
+    
+    with tf.variable_scope(scope):
+        
+        w_temp = tf.get_variable('w_', [len(h_list), 1, 1, h_dim], initializer=tf.contrib.layers.xavier_initializer())
+        b_temp = tf.Variable( tf.random_normal([len(h_list), 1, 1, 1]) )
+        
+        tmph = tf.stack(h_list)
+        tmph_before, tmph_last = tf.split(h, [step-1, 1], 2)
+        tmph_last = tf.squeeze( tmph_last )
+        
+        # ? bias nonlinear activation?
+        temp_logit = tf.reduce_sum( tmph_before*w_temp, 3 )
+        temp_weight = tf.softmax( temp_logit )
+        
+        tmph_cxt = tf.reduce_sum( tmph_before*tf.expand_dims(temp_weight, -1), 2)
+        h_temp = tf.concat([tmph_cxt, tmph_last], 2)
+        
+        w_var = tf.get_variable('w_', [h_dim*2, 1], initializer=tf.contrib.layers.xavier_initializer())
+        b_var = tf.Variable( tf.random_normal([1]) )
+        # ? bias nonlinear activation?
+        var_weight = tf.sigmoid( tf.tensordot(h_temp, w_ar, axes=1) )
+        
+        h_var_list = tf.split(h_temp*var_weight, len(h_list), 0)
+        
+    return tf.concat(h_var_list, 1), tf.nn.l2_loss(w_var) + tf.nn.l2_loss(w_temp), att
 
 #attention_variate_aggre_hidden(alphas, h_list, h_dim_list)
     
@@ -404,7 +432,7 @@ def attention_variate_logit( h_list, h_dim, scope, step ):
 class tsLSTM_seperate_mv():
     
     def __init__(self, n_dense_dim_layers, n_lstm_dim_layers, n_steps, n_data_dim, session,\
-                 lr, l2, max_norm , n_batch_size, bool_att, bool_residual ):
+                 lr, l2, max_norm , n_batch_size, bool_residual, bool_att):
         
         self.LEARNING_RATE = lr
         self.L2 =  l2
@@ -509,7 +537,7 @@ class tsLSTM_seperate_mv():
 class tsLSTM_mv():
     
     def __init__(self, n_dense_dim_layers, n_lstm_dim_layers, n_steps, n_data_dim, session,\
-                 lr, l2, max_norm , n_batch_size, bool_residual ):
+                 lr, l2, max_norm , n_batch_size, bool_residual, bool_att):
         
         self.LEARNING_RATE = lr
         self.L2 =  l2
@@ -530,20 +558,48 @@ class tsLSTM_mv():
         # begin to build the graph
         self.sess = session
         
-        if bool_residual:
+        if bool_residual == True:
             
             with tf.variable_scope('lstm'):
-                lstm_cell = MvLSTMCell(120)
+                lstm_cell = MvLSTMCell( n_lstm_dim_layers[0] )
                 #, initializer= tf.contrib.keras.initializers.glorot_normal()
                 h, state = tf.nn.dynamic_rnn(cell = lstm_cell, inputs = self.x, dtype = tf.float32)
             
             # obtain the last hidden state    
-            tmp_hiddens = tf.transpose( h, [1,0,2]  )
+            tmp_hiddens = tf.transpose( h, [1,0,2] )
             h = tmp_hiddens[-1]
             
             h, regul = res_dense( h, n_lstm_dim_layers[0], n_dense_dim_layers[0], len(n_dense_dim_layers), 'dense',\
                                   self.keep_prob )
+        else:
+            if bool_att == True:
+
+                with tf.variable_scope('lstm'):
+                    lstm_cell = MvLSTMCell( n_lstm_dim_layers[0] )
+                    #, initializer= tf.contrib.keras.initializers.glorot_normal()
+                    h, state = tf.nn.dynamic_rnn(cell = lstm_cell, inputs = self.x, dtype = tf.float32)
+                
+                h_list = tf.split(h, self.N_DATA_DIM, 2)
+                h_att, regu_att, att = attention_variate_logit_speed_up(h_list, int(n_lstm_dim_layers[0]/self.N_DATA_DIM), \
+                                                                        'att', self.N_STEPS)
+                
+                h, regul = res_plain( h_att, n_lstm_dim_layers[-1]*2, n_dense_dim_layers, 'dense', self.keep_prob )
+                regu_all = regu_att + regul
             
+            else:
+                
+                with tf.variable_scope('lstm'):
+                    lstm_cell = MvLSTMCell( n_lstm_dim_layers[0] )
+                    #, initializer= tf.contrib.keras.initializers.glorot_normal()
+                    h, state = tf.nn.dynamic_rnn(cell = lstm_cell, inputs = self.x, dtype = tf.float32)
+            
+                # obtain the last hidden state    
+                tmp_hiddens = tf.transpose( h, [1,0,2]  )
+                h = tmp_hiddens[-1]
+                
+                h, regul = res_plain( h, n_lstm_dim_layers[-1], n_dense_dim_layers, 'dense', self.keep_prob )
+                regu_all = regul
+        
         #dropout
         #last_hidden = tf.nn.dropout(last_hidden, self.keep_prob)
         with tf.variable_scope("output"):
@@ -553,8 +609,7 @@ class tsLSTM_mv():
             b = tf.Variable(tf.zeros( [ 1 ] ))
             self.py = tf.matmul(h, w) + b
             
-            
-            self.regularization = regul + tf.nn.l2_loss(w)
+            self.regularization = regu_all + tf.nn.l2_loss(w)
             
 
     def train_ini(self):  

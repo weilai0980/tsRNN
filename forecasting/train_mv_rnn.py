@@ -13,7 +13,6 @@ from custom_rnn_cell import *
 from ts_mv_rnn import *
 from utils_libs import *
 
-
 # ---- training process ----
 
 if __name__ == '__main__':
@@ -48,13 +47,11 @@ if __name__ == '__main__':
     ytest  = np.expand_dims( ytest,  1 )
 
     print np.shape(xtrain), np.shape(ytrain), np.shape(xtest), np.shape(ytest)
-
     
 # --- training log --- 
     log_file   = "res/rnn"
     model_file = "res/model/rnn"
     attention_file = "res/att"
-
 
 # --- network set-up ---
     # if residual layers are used, keep all dimensions the same 
@@ -89,21 +86,21 @@ if __name__ == '__main__':
     para_dense_dims_sep = [32, 16, 8]
     #[32, 32, 32]
 
-    para_lr_sep = 0.001
+    para_lr_sep = 0.002
     para_batch_size_sep = 64
     
-    para_l2_sep = 0.015
-    para_keep_prob_sep = 0.8
+    para_l2_sep = 0.02
+    para_keep_prob_sep = 1.0
     
     # -- mv
-    para_lstm_dims_mv = [120, 120, 120]
-    para_dense_dims_mv = [32, 32]
+    para_lstm_dims_mv = [120]
+    para_dense_dims_mv = [32, 16, 8]
 
     para_lr_mv = 0.001
     para_batch_size_mv = 64
     
     para_l2_mv = 0.015
-    para_keep_prob_mv = 0.8
+    para_keep_prob_mv = 1.0
     
 #--- build and train the model ---
     
@@ -128,8 +125,7 @@ if __name__ == '__main__':
             reg = tsLSTM_seperate_mv(para_dense_dims_sep, para_lstm_dims_sep, \
                                      para_win_size, para_input_dim, sess, \
                                      para_lr_sep, para_l2_sep, para_max_norm, para_batch_size_sep, \
-                                     para_bool_attention, para_bool_residual)
-            
+                                     para_bool_residual, para_bool_attention)
             
             log_file += "_sep.txt"
             model_file += "_sep-{epoch:02d}.hdf5"
@@ -140,8 +136,8 @@ if __name__ == '__main__':
         
         elif method_str == 'mv':
             reg = tsLSTM_mv(para_dense_dims, para_lstm_dims, \
-                                 para_win_size,   para_input_dim, sess, \
-                                 para_lr, para_l2,para_max_norm, para_batch_size, para_bool_residual)
+                            para_win_size,   para_input_dim, sess, \
+                            para_lr, para_l2,para_max_norm, para_batch_size, para_bool_residual, para_bool_attention)
             
             log_file += "_mv.txt"
             model_file += "_mv-{epoch:02d}.hdf5"

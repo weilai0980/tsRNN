@@ -14,14 +14,18 @@ dim_per_var
 
 --- To do ---
 
+model saver, training and testing data, attentions 
+
+mv_cell: for stacked lstm
+
+Batchnorm, Layer norm
+
 Computation time 
 
 Time decay: cikm deephawkes paper 
 
 statistical processing:
   autocorrelation order
-
-model saver
 
 some improvements on memory moduel in LSTM 
 
@@ -42,7 +46,6 @@ causalimpact
 # exponeital weighted moving average 
 
 
-
 RMSE mean, standard errors, willios rank test, predicive likelihood 
 
 gcForest
@@ -58,6 +61,16 @@ order effect: chosen order, automatic detected order
 For causal work:
 classification dataset
 Wafer: Sensor data collected during the manufacture of semiconductor microelectronics, where the time series are labeled as normal or abnormal.
+
+---air
+
+plain att: 130
+sep att: 120
+
+
+
+
+
 
 
 
