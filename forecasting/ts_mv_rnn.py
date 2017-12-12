@@ -10,7 +10,7 @@ from tensorflow.python.ops import rnn_cell_impl
 from tensorflow.python.ops.rnn_cell_impl import *
 
 # local 
-from mv_rnn_cell import *
+from custom_rnn_cell import *
 from utils_libs import *
 
     
