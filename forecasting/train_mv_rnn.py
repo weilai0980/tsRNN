@@ -64,7 +64,7 @@ if __name__ == '__main__':
     para_is_stateful = False
     para_n_epoch = 500
     para_bool_residual = False
-    para_bool_attention = True
+    para_bool_attention = 'temp'
     
     # -- plain
     para_lstm_dims_plain = [96]
@@ -73,11 +73,11 @@ if __name__ == '__main__':
     #[32, 32, 32]
 
     para_lr_plain = 0.002
-    #0.01
+    #0.002
     para_batch_size_plain = 64
     
     para_l2_plain = 0.01
-    #0.02
+    #0.01
     para_keep_prob_plain = 1.0
 
     # -- seperate
@@ -87,9 +87,11 @@ if __name__ == '__main__':
     #[32, 32, 32]
 
     para_lr_sep = 0.002
+    #0.002
     para_batch_size_sep = 64
     
     para_l2_sep = 0.02
+    #0.02
     para_keep_prob_sep = 1.0
     
     # -- mv
@@ -161,6 +163,11 @@ if __name__ == '__main__':
         total_iter = int(total_cnt/para_batch_size)
         total_idx = range(total_cnt)
         
+        
+        # test
+        #print '? ? ? :', reg.testfunc( xtrain, ytrain, para_keep_prob)
+        
+        
         # training epoches 
         for epoch in range(para_n_epoch):
             
@@ -173,6 +180,7 @@ if __name__ == '__main__':
                 batch_idx = total_idx[ i*para_batch_size: (i+1)*para_batch_size ] 
                 batch_x = xtrain[ batch_idx ]
                 batch_y = ytrain[ batch_idx ]            
+                
                 
                 tmpc += reg.train_batch( batch_x, batch_y, para_keep_prob)
         
