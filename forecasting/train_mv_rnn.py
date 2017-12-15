@@ -66,7 +66,7 @@ if __name__ == '__main__':
     para_bool_residual = False
     para_bool_attention = 'temp'
     
-    # -- plain
+    # -- plain --
     para_lstm_dims_plain = [96]
     #[96, 96, 96]
     para_dense_dims_plain = [32, 16, 8]
@@ -80,7 +80,7 @@ if __name__ == '__main__':
     #0.01
     para_keep_prob_plain = 1.0
 
-    # -- seperate
+    # -- seperate --
     para_lstm_dims_sep = [96]
     #[96, 96, 96]
     para_dense_dims_sep = [32, 16, 8]
@@ -94,14 +94,15 @@ if __name__ == '__main__':
     #0.02
     para_keep_prob_sep = 1.0
     
-    # -- mv
-    para_lstm_dims_mv = [120]
+    # -- mv --
+    para_lstm_dims_mv = [192]
     para_dense_dims_mv = [32, 16, 8]
 
     para_lr_mv = 0.001
     para_batch_size_mv = 64
     
-    para_l2_mv = 0.015
+    para_l2_mv = 0.03
+    #0.02
     para_keep_prob_mv = 1.0
     
 #--- build and train the model ---
@@ -137,9 +138,9 @@ if __name__ == '__main__':
             para_keep_prob = para_keep_prob_sep
         
         elif method_str == 'mv':
-            reg = tsLSTM_mv(para_dense_dims, para_lstm_dims, \
+            reg = tsLSTM_mv(para_dense_dims_mv, para_lstm_dims_mv, \
                             para_win_size,   para_input_dim, sess, \
-                            para_lr, para_l2,para_max_norm, para_batch_size, para_bool_residual, para_bool_attention)
+                            para_lr_mv, para_l2_mv, para_max_norm, para_batch_size_mv, para_bool_residual, para_bool_attention)
             
             log_file += "_mv.txt"
             model_file += "_mv-{epoch:02d}.hdf5"
@@ -163,10 +164,8 @@ if __name__ == '__main__':
         total_iter = int(total_cnt/para_batch_size)
         total_idx = range(total_cnt)
         
-        
         # test
-        #print '? ? ? :', reg.testfunc( xtrain, ytrain, para_keep_prob)
-        
+        print '? ? ? :', reg.testfunc( xtrain, ytrain, para_keep_prob)
         
         # training epoches 
         for epoch in range(para_n_epoch):
@@ -181,7 +180,6 @@ if __name__ == '__main__':
                 batch_x = xtrain[ batch_idx ]
                 batch_y = ytrain[ batch_idx ]            
                 
-                
                 tmpc += reg.train_batch( batch_x, batch_y, para_keep_prob)
         
             #if epoch%para_eval_byepoch != 0:
@@ -193,7 +191,7 @@ if __name__ == '__main__':
             print "At epoch %d: loss %f, train %f, test %f\n" % ( epoch, tmpc*1.0/total_iter, \
                                                                   tmp_train_acc[0], tmp_test_acc[0] ) 
             
-            if para_bool_attention == True:
+            if para_bool_attention == 'both' or para_bool_attention == 'temp' :
                 with open(attention_file, "a") as text_file:
                     text_file.write("-- At epoch %d: %s \n" % (epoch, \
                                                            str(reg.test_attention(xtest[:1], ytest[:1], para_keep_prob)))) 
