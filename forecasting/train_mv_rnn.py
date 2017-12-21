@@ -63,8 +63,8 @@ if __name__ == '__main__':
     para_max_norm = 0.0
     para_is_stateful = False
     para_n_epoch = 500
-    para_bool_residual = False
-    para_bool_attention = 'temp'
+    para_bool_residual = True
+    para_bool_attention = ''
     
     # -- plain --
     para_lstm_dims_plain = [96]
@@ -95,14 +95,16 @@ if __name__ == '__main__':
     para_keep_prob_sep = 1.0
     
     # -- mv --
-    para_lstm_dims_mv = [192]
-    para_dense_dims_mv = [32, 16, 8]
+    para_lstm_dims_mv = [120]
+    para_dense_dims_mv = [32, 32]
 
     para_lr_mv = 0.001
     para_batch_size_mv = 64
     
-    para_l2_mv = 0.03
-    #0.02
+    para_l2_mv = 0.1
+    # no att: 0.1
+    # temp att:
+    # temp-var att: 
     para_keep_prob_mv = 1.0
     
 #--- build and train the model ---
@@ -125,7 +127,7 @@ if __name__ == '__main__':
             para_keep_prob = para_keep_prob_plain
             
         elif method_str == 'sep':
-            reg = tsLSTM_seperate_mv(para_dense_dims_sep, para_lstm_dims_sep, \
+            reg = tsLSTM_seperate(para_dense_dims_sep, para_lstm_dims_sep, \
                                      para_win_size, para_input_dim, sess, \
                                      para_lr_sep, para_l2_sep, para_max_norm, para_batch_size_sep, \
                                      para_bool_residual, para_bool_attention)
@@ -165,7 +167,7 @@ if __name__ == '__main__':
         total_idx = range(total_cnt)
         
         # test
-        print '? ? ? :', reg.testfunc( xtrain, ytrain, para_keep_prob)
+        print '? ? ? :', reg.testfunc(xtrain, ytrain, para_keep_prob)
         
         # training epoches 
         for epoch in range(para_n_epoch):
@@ -180,17 +182,26 @@ if __name__ == '__main__':
                 batch_x = xtrain[ batch_idx ]
                 batch_y = ytrain[ batch_idx ]            
                 
-                tmpc += reg.train_batch( batch_x, batch_y, para_keep_prob)
+                tmpc += reg.train_batch(batch_x, batch_y, para_keep_prob)
         
             #if epoch%para_eval_byepoch != 0:
             #    continue
     
-            tmp_test_acc  = reg.inference( xtest, ytest,  para_keep_prob) 
-            tmp_train_acc = reg.inference( xtrain,ytrain, para_keep_prob)
+            tmp_test_acc  = reg.inference(xtest, ytest,  para_keep_prob) 
+            tmp_train_acc = reg.inference(xtrain,ytrain, para_keep_prob)
+
             
-            print "At epoch %d: loss %f, train %f, test %f\n" % ( epoch, tmpc*1.0/total_iter, \
-                                                                  tmp_train_acc[0], tmp_test_acc[0] ) 
+            # monitor training indicators
+            print "At epoch %d: loss %f, train %s, test %s " % ( epoch, tmpc*1.0/total_iter, \
+                                                                  tmp_train_acc, tmp_test_acc ) 
             
+            if method_str == 'mv':
+                print 'regular: ', reg.test_regularization(xtest, ytest,  para_keep_prob) 
+
+            print '\n'
+            
+            
+            # write performance indicators to txt files
             if para_bool_attention == 'both' or para_bool_attention == 'temp' :
                 with open(attention_file, "a") as text_file:
                     text_file.write("-- At epoch %d: %s \n" % (epoch, \

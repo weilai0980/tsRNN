@@ -12,28 +12,36 @@ residual rnn high way layers
 
 dim_per_var 
 
+RNN regularization, mv_cell speed up, 
+
+mv_cell: for stacked lstm
+
+temporal and variate attention
+
+mv_lstmcell speed up 
+
 --- To do ---
+
+time decay attention:
+  variate specific decay
+  
 
 model saver, training and testing data, attentions 
 
-mv_cell: for stacked lstm
 
 Batchnorm, Layer norm
 
 Computation time 
 
-Time decay: cikm deephawkes paper 
+Attention mechinism:  time decay: cikm deephawkes paper 
 
-statistical processing:
+statistical pre-processing:
   autocorrelation order
 
 some improvements on memory moduel in LSTM 
 
-attention
 
-mixed effect in temporal data  
-
-air pollution data: heterogenous 
+mixed effect in temporal data: e.g. air pollution data: heterogenous 
 
 
 4. python automatic time series forecasting 

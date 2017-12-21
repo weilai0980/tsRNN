@@ -554,7 +554,7 @@ def _mv_linear(args,
     tmp_h = args[1]
     blk_h = array_ops.split( tmp_h, num_or_size_splits = input_dim, axis=1)
     blk_h = array_ops.stack( blk_h, 2)
-    blk_h = array_ops.transpose( blk_h, [2, 0,1])
+    blk_h = array_ops.transpose( blk_h, [2, 0, 1])
     #blk_h = array_ops.reshape( blk_h, [-1, per_dim])
     
     #res_h = math_ops.matmul(blk_h, weights_mv_trans[k]
@@ -587,6 +587,124 @@ def _mv_linear(args,
     return nn_ops.bias_add(res, biases)
 # i, j, f, o
 
+def _mv_linear_speed_up(args,
+            output_size,
+            bias,
+            kernel_initializer, 
+            n_var,
+            bias_initializer=None):
+  """Linear map: sum_i(args[i] * W[i]), where W[i] is a variable.
+  Args:
+    args: a 2D Tensor or a list of 2D, batch x n, Tensors.
+    output_size: int, second dimension of W[i].
+    bias: boolean, whether to add a bias term or not.
+    bias_initializer: starting value to initialize the bias
+      (default is all zeros).
+    kernel_initializer: starting value to initialize the weight.
+  Returns:
+    A 2D Tensor with shape [batch x output_size] equal to
+    sum_i(args[i] * W[i]), where W[i]s are newly created matrices.
+  Raises:
+    ValueError: if some of the arguments has unspecified or wrong shape.
+  """
+  if args is None or (nest.is_sequence(args) and not args):
+    raise ValueError("`args` must be specified")
+  if not nest.is_sequence(args):
+    args = [args]
+
+  # Calculate the total size of arguments on dimension 1.
+  total_arg_size = 0
+  shapes = [a.get_shape() for a in args]
+  for shape in shapes:
+    if shape.ndims != 2:
+      raise ValueError("linear is expecting 2D arguments: %s" % shapes)
+    if shape[1].value is None:
+      raise ValueError("linear expects shape[1] to be provided for shape %s, "
+                       "but saw %s" % (shape, shape[1]))
+    else:
+      total_arg_size += shape[1].value
+
+  dtype = [a.dtype for a in args][0]
+
+
+  # --- begin multi-variate cell update ---
+    
+  scope = vs.get_variable_scope()
+  with vs.variable_scope(scope) as outer_scope:
+    
+    # mv cell
+    output_size_mv   = output_size/4
+    output_size_gate = output_size/4*3
+
+    # define relevant dimensions
+    input_dim  = args[0].get_shape()[1].value
+    hidden_dim = args[1].get_shape()[1].value
+    
+    input_dim_per_var  = int(input_dim / n_var)
+    hidden_dim_per_var = int(hidden_dim / n_var)
+    
+    # define transition variables
+    weights_gate = vs.get_variable(
+        'gate', [total_arg_size, output_size_gate],
+        dtype=dtype,
+        initializer=kernel_initializer)
+    
+    weights_IH = vs.get_variable(
+        'input_transition',  [n_var, input_dim_per_var, hidden_dim_per_var],
+        dtype = dtype,
+        initializer = kernel_initializer)
+    
+    weights_HH = vs.get_variable(
+        'hidden_transition', [n_var, hidden_dim_per_var, hidden_dim_per_var],
+        dtype = dtype,
+        initializer = kernel_initializer)
+    
+    # reshape input
+    tmp_input = args[0] 
+    blk_input = array_ops.split( tmp_input, num_or_size_splits = n_var, axis = 1 )
+    blk_input = array_ops.stack( blk_input, 2 )
+    mv_input = array_ops.transpose( blk_input, [2, 0, 1] )
+    
+    # reshape hidden 
+    tmp_h = args[1]
+    blk_h = array_ops.split( tmp_h, num_or_size_splits = n_var, axis = 1 )
+    blk_h = array_ops.stack( blk_h, 2 )
+    mv_h = array_ops.transpose( blk_h, [2, 0, 1] )
+    
+    # perform multi-variate input and hidden transition
+    res_h  = []
+    res_mv = []
+    for k in range(n_var):
+        res_mv.append( math_ops.matmul( mv_input[k], weights_IH[k] ))
+        res_h.append(  math_ops.matmul( mv_h[k],     weights_HH[k] ))                    
+    
+    # derive gates of input, output, forget
+    if len(args) == 1:
+      res = math_ops.matmul(args[0], weights_gate)
+    else:
+      res = math_ops.matmul(array_ops.concat(args, 1), weights_gate)
+    
+    # concate gates and new input
+    res_mv = array_ops.concat(res_mv, 1)
+    res_h = array_ops.concat(res_h, 1)
+    res = array_ops.concat([res, res_mv+res_h], 1)
+    
+    # --- finish multi-variate cell update ---
+    
+    if not bias:
+      return res
+    with vs.variable_scope(outer_scope) as inner_scope:
+      inner_scope.set_partitioner(None)
+      if bias_initializer is None:
+        bias_initializer = init_ops.constant_initializer(0.0, dtype=dtype)
+      biases = vs.get_variable(
+          _BIAS_VARIABLE_NAME, [output_size],
+          dtype=dtype,
+          initializer=bias_initializer)
+    
+    return nn_ops.bias_add(res, biases)
+# i, j, f, o
+
 class MvLSTMCell(RNNCell):
   """Basic LSTM recurrent network cell.
   The implementation is based on: http://arxiv.org/abs/1409.2329.
@@ -598,8 +716,8 @@ class MvLSTMCell(RNNCell):
   that follows.
   """
 
-  def __init__(self, num_units, forget_bias=1.0,
-               state_is_tuple=True, activation=None, reuse=None, dim_per_var):
+  def __init__(self, num_units, n_var, initializer, forget_bias=1.0,
+               state_is_tuple=True, activation=None, reuse=None ):
     """Initialize the basic LSTM cell.
     Args:
       num_units: int, The number of units in the LSTM cell.
@@ -627,6 +745,11 @@ class MvLSTMCell(RNNCell):
     self._linear = None
     
     self._input_dim = None
+    
+    # added by mv_rnn
+    self._n_var = n_var
+    self._kernel_ini = initializer
+    
 
   @property
   def state_size(self):
@@ -658,14 +781,22 @@ class MvLSTMCell(RNNCell):
       c, h = array_ops.split(value=state, num_or_size_splits=2, axis=1)
 
     if self._linear is None:
-      self._linear = _mv_linear([inputs, h], 4 * self._num_units, True)  
-      #?  
-      #self._linear = _Linear([inputs, h], 4 * self._num_units, True)
+        
+        #?
+        #self._linear = _mv_linear([inputs, h], 4 * self._num_units, True, kernel_initializer = self._kernel_ini, self._n_var)
+        #?
+        self._linear = _mv_linear_speed_up([inputs, h], 4 * self._num_units, True, kernel_initializer = self._kernel_ini,\
+                                           n_var = self._n_var)
+        
+        #self._linear = _mv_linear([inputs, h], 4 * self._num_units, True)  
+        #?  
+        #self._linear = _Linear([inputs, h], 4 * self._num_units, True)
     
     # i = input_gate, j = new_input, f = forget_gate, o = output_gate
     
     i, f, o, j = array_ops.split(
         value= self._linear , num_or_size_splits=4, axis=1)
+    
     
     #?
     #i, j, f, o = array_ops.split(
