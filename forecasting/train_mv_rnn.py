@@ -54,7 +54,6 @@ if __name__ == '__main__':
     attention_file = "res/att"
 
 # --- network set-up ---
-    # if residual layers are used, keep all dimensions the same 
     
     # fixed
     para_input_dim = np.shape(xtrain)[-1]
@@ -63,7 +62,9 @@ if __name__ == '__main__':
     para_max_norm = 0.0
     para_is_stateful = False
     para_n_epoch = 500
-    para_bool_residual = True
+    
+    # if residual layers are used, keep all dimensions the same 
+    para_bool_residual = False
     para_bool_attention = ''
     
     # -- plain --
@@ -96,12 +97,12 @@ if __name__ == '__main__':
     
     # -- mv --
     para_lstm_dims_mv = [120]
-    para_dense_dims_mv = [32, 32]
+    para_dense_dims_mv = [32, 8]
 
     para_lr_mv = 0.001
     para_batch_size_mv = 64
     
-    para_l2_mv = 0.1
+    para_l2_mv = 0.01
     # no att: 0.1
     # temp att:
     # temp-var att: 
@@ -190,7 +191,6 @@ if __name__ == '__main__':
             tmp_test_acc  = reg.inference(xtest, ytest,  para_keep_prob) 
             tmp_train_acc = reg.inference(xtrain,ytrain, para_keep_prob)
 
-            
             # monitor training indicators
             print "At epoch %d: loss %f, train %s, test %s " % ( epoch, tmpc*1.0/total_iter, \
                                                                   tmp_train_acc, tmp_test_acc ) 
@@ -199,7 +199,6 @@ if __name__ == '__main__':
                 print 'regular: ', reg.test_regularization(xtest, ytest,  para_keep_prob) 
 
             print '\n'
-            
             
             # write performance indicators to txt files
             if para_bool_attention == 'both' or para_bool_attention == 'temp' :
