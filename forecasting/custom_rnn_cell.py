@@ -662,14 +662,16 @@ def _mv_linear_speed_up(args,
     # reshape input
     tmp_input = args[0] 
     blk_input = array_ops.split( tmp_input, num_or_size_splits = n_var, axis = 1 )
-    blk_input = array_ops.stack( blk_input, 2 )
-    mv_input = array_ops.transpose( blk_input, [2, 0, 1] )
+    #blk_input = array_ops.stack( blk_input, 2 )
+    mv_input = blk_input
+    #array_ops.transpose( blk_input, [2, 0, 1] )
     
     # reshape hidden 
     tmp_h = args[1]
     blk_h = array_ops.split( tmp_h, num_or_size_splits = n_var, axis = 1 )
-    blk_h = array_ops.stack( blk_h, 2 )
-    mv_h = array_ops.transpose( blk_h, [2, 0, 1] )
+    #blk_h = array_ops.stack( blk_h, 2 )
+    mv_h = blk_h
+    #= array_ops.transpose( blk_h, [2, 0, 1] )
     
     # perform multi-variate input and hidden transition
     res_h  = []
@@ -687,7 +689,7 @@ def _mv_linear_speed_up(args,
     # concate gates and new input
     res_mv = array_ops.concat(res_mv, 1)
     res_h = array_ops.concat(res_h, 1)
-    res = array_ops.concat([res, res_mv+res_h], 1)
+    res = array_ops.concat([res, res_mv + res_h], 1)
     
     # --- finish multi-variate cell update ---
     

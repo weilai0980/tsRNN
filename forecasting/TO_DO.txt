@@ -20,11 +20,10 @@ temporal and variate attention
 
 mv_lstmcell speed up 
 
---- To do ---
-
 time decay attention:
   variate specific decay
   
+--- To do ---
 
 model saver, training and testing data, attentions 
 

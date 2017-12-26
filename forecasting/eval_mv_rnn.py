@@ -63,9 +63,6 @@ if __name__ == '__main__':
     model_file = "res/model/rnn"
     attention_file = "res/att"
     PIK = "epoch_err_"
-    
-    epoch_tr_ts_err = []
-    
 # --- network set-up ---
     
     # fixed
@@ -110,34 +107,36 @@ if __name__ == '__main__':
     
     # -- mv --
     para_lstm_dims_mv = [120]
-    para_dense_dims_mv = [32, 32]
-    # no att: 32, 8
-    # temp: 32
+    para_dense_dims_mv = [32, 16, 8]
+    # no att: 32, 16, 8
 
     para_lr_mv = 0.002
-    # no att: 0.002
-    # temp: 0.002
     para_batch_size_mv = 64
     
-    para_l2_mv = 0.001
+    para_l2_mv = 0.01
     # no att: 0.01
-    # temp att: 0.03
+    # temp att:
     # temp-var att: 
     para_keep_prob_mv = 1.0
+    
+    
+#--- retrieve the trained model ---    
+    
     
 #--- build and train the model ---
     
     # clear graph
     tf.reset_default_graph()
     
-    
     with tf.Session() as sess:
         
         if method_str == 'plain':
+            '''
             reg = tsLSTM_plain(para_dense_dims_plain, para_lstm_dims_plain, \
                                     para_win_size, para_input_dim, sess, \
                                     para_lr_plain, para_l2_plain, para_max_norm, para_batch_size_plain, \
                                     para_bool_residual, para_bool_attention)
+            '''
             
             log_file += "_plain.txt"
             model_file += "_plain"
@@ -148,10 +147,12 @@ if __name__ == '__main__':
             para_keep_prob = para_keep_prob_plain
             
         elif method_str == 'sep':
+            '''
             reg = tsLSTM_seperate(para_dense_dims_sep, para_lstm_dims_sep, \
                                      para_win_size, para_input_dim, sess, \
                                      para_lr_sep, para_l2_sep, para_max_norm, para_batch_size_sep, \
                                      para_bool_residual, para_bool_attention)
+            '''
             
             log_file += "_sep.txt"
             model_file += "_sep"
@@ -162,9 +163,11 @@ if __name__ == '__main__':
             para_keep_prob = para_keep_prob_sep
         
         elif method_str == 'mv':
+            
             reg = tsLSTM_mv(para_dense_dims_mv, para_lstm_dims_mv, \
                             para_win_size,   para_input_dim, sess, \
                             para_lr_mv, para_l2_mv, para_max_norm, para_batch_size_mv, para_bool_residual, para_bool_attention)
+            
             
             log_file += "_mv.txt"
             model_file += "_mv"
@@ -174,72 +177,54 @@ if __name__ == '__main__':
             para_batch_size = para_batch_size_mv
             para_keep_prob = para_keep_prob_mv
         
-        #   clean logs
-        with open(log_file, "w") as text_file:
-            text_file.close()
-            
-        with open(attention_file, "w") as text_file:
-            text_file.close()
-        
+        '''
         # initialize the network
         reg.train_ini()
         reg.inference_ini()
+        '''
         
-        # perpare for data shuffling
         total_cnt   = np.shape(xtrain)[0]
         total_iter = int(total_cnt/para_batch_size)
         total_idx = range(total_cnt)
         
-        # test
-        print '? ? ? :', reg.testfunc(xtrain, ytrain, para_keep_prob)
         
-        # set up model saver
-        saver = tf.train.Saver(max_to_keep = para_n_epoch)
+        # find the best model 
+        with open(PIK, "rb") as f:
+            epoch_tr_ts = pickle.load(f)
         
-        # training epoches 
-        for epoch in range(para_n_epoch):
-            
-            tmpc = 0.0
-            np.random.shuffle(total_idx)
-            
-            for i in range(total_iter):
-                
-                # shuffle training data
-                batch_idx = total_idx[ i*para_batch_size: (i+1)*para_batch_size ] 
-                batch_x = xtrain[ batch_idx ]
-                batch_y = ytrain[ batch_idx ]            
-                
-                tmpc += reg.train_batch(batch_x, batch_y, para_keep_prob)
+        # for test
+        print len(epoch_tr_ts)
+        print epoch_tr_ts[:5]
         
-            tmp_test_acc  = reg.inference(xtest, ytest,  para_keep_prob) 
-            tmp_train_acc = reg.inference(xtrain,ytrain, para_keep_prob)
+        best_epoch = min(epoch_tr_ts, key = lambda x:x[2] )[0]
+        best_model_file = model_file + "_" + str(best_epoch) + ".ckpt"
+        
+        # model restoring 
+        #saver = tf.train.Saver()        
+        
+        #saver.restore(sess, best_model_file)
+        
+        # use the best model to evalute 
+        
+        '''
+        tmp_test_acc  = reg.inference(xtest, ytest,  para_keep_prob) 
+        tmp_train_acc = reg.inference(xtrain,ytrain, para_keep_prob)
 
             # monitor training indicators
             print "At epoch %d: loss %f, train %s, test %s " % ( epoch, tmpc*1.0/total_iter, \
                                                                   tmp_train_acc, tmp_test_acc ) 
             
-            if method_str == 'mv':
-                print 'regular: ', reg.test_regularization(xtest, ytest,  para_keep_prob) 
 
-            print '\n'
-            
-            # write attention weights to txt files
+            # write performance indicators to txt files
             if para_bool_attention == 'both' or para_bool_attention == 'temp' :
                 with open(attention_file, "a") as text_file:
                     text_file.write("-- At epoch %d: %s \n" % (epoch, \
                                                            str(reg.test_attention(xtest[:1], ytest[:1], para_keep_prob)))) 
             
-            # write training and testing errors to txt files
             with open(log_file, "a") as text_file:
                 text_file.write("At epoch %d: loss %f, train %f, test %f\n" % ( epoch, tmpc*1.0/total_iter, \
                                                                                    tmp_train_acc[0], tmp_test_acc[0] ))
-            
-            
-            # save epoch errors and the model
-            epoch_tr_ts_err.append([epoch, tmp_train_acc[0], tmp_test_acc[0]])
-            with open(PIK, "wb") as f:
-                pickle.dump(epoch_tr_ts_err, f)
                 
-            save_path = saver.save(sess, model_file + "_" + str(epoch) + ".ckpt")
         
-        print "Optimization Finished!"
+        print "Evaluation Finished!"
+        '''
