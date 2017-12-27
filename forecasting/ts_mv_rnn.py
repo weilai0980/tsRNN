@@ -623,7 +623,268 @@ def mv_attention_variate_temp_logit( h_list, h_dim, scope, step ):
         
     return tf.squeeze(tf.concat(h_var_list, 2)), tf.nn.l2_loss(w_var) + tf.nn.l2_loss(w_temp), [temp_weight, var_weight]
 
+
+# unified temporal weighted attention 
+def mv_attention_temp_concat_weight_decay( h_list, h_dim, scope, step, step_idx, decay_activation, att_type ):
+    
+    with tf.variable_scope(scope):
+        
+        tmph = tf.stack(h_list, 0)
+        tmph_before, tmph_last = tf.split(tmph, [step-1, 1], 2)
+        
+        if att_type == 'loc':
+            
+            w_temp = tf.get_variable('w_temp', [len(h_list), 1, 1, h_dim], initializer=tf.contrib.layers.xavier_initializer())
+            b_temp = tf.Variable( tf.random_normal([len(h_list), 1, 1, 1]) )
+            
+            # temporal logits
+            # ? bias nonlinear activation ?
+            temp_logit = tf.reduce_sum(tmph_before*w_temp + b_temp, 3) 
+            
+        elif att_type == 'general':
+            
+            w_temp = tf.get_variable('w_temp', [len(h_list), 1, h_dim, h_dim],\
+                                     initializer=tf.contrib.layers.xavier_initializer())
+            b_temp = tf.Variable( tf.random_normal([len(h_list), 1, 1, 1]) )
+            
+            # temporal logits
+            #[V, B, 1, D]
+            tmp = tf.reduce_sum(tmph_last * w_temp, 3)
+            tmp = tf.expand_dims(tmp, 2)
+        
+            # ? bias nonlinear activation ?
+            temp_logit = tf.nn.relu( tf.reduce_sum(tmph_before * tmp, 3) )
+            
+        elif att_type == 'concat':
+            
+            w_temp = tf.get_variable('w_temp', [len(h_list), 1, 1, h_dim*2],\
+                                     initializer=tf.contrib.layers.xavier_initializer())
+            b_temp = tf.Variable( tf.random_normal([len(h_list), 1, 1, 1]) )
+            
+            # temporal logits
+            # concatenate tmph_before and tmph_last
+            last_tile = tf.tile(tmph_last, [1, 1, step-1, 1])
+            tmph_tile = tf.concat( [tmph_before, last_tile], 3 )
+            # ? bias nonlinear activation ?
+            temp_logit = tf.reduce_sum(tmph_tile*w_temp + b_temp, 3) 
+        
+        else:
+            print '[ERROR] attention type'
+        
+        
+        # -- temporal decay weight
+        w_decay = tf.get_variable('w_decay', [len(h_list), 1], initializer=tf.contrib.layers.xavier_initializer())
+        w_decay = tf.square(w_decay)
+        
+        b_decay = tf.Variable( tf.random_normal([len(h_list), 1]) )
+        
+        step_idx = tf.reshape(step_idx, [1, step-1])
+        
+        # ? bias ?
+        if decay_activation == 'exp':
+            temp_decay = tf.exp( tf.matmul(w_decay, -1*step_idx) )
+        elif decay_activation == 'sigmoid':
+            temp_decay = tf.sigmoid( tf.matmul(w_decay, -1*step_idx) )
+        else:
+            print '[ERROR] decay activiaiton type'
+        
+        temp_decay = tf.expand_dims(temp_decay, 1)
+        
+        # decay on temporal logit
+        temp_logit  = temp_logit*temp_decay
+        temp_weight = tf.nn.softmax( temp_logit )
+        
+        # -- attention weighted context
+        tmph_cxt = tf.reduce_sum( tmph_before*tf.expand_dims(temp_weight, -1), 2 )
+        
+        # [context, last hidden]
+        # ?
+        tmph_last = tf.squeeze( tmph_last, [2] )
+        h_temp = tf.concat([tmph_last, tmph_cxt], 2)
+        #h_temp = tmph_last
+        
+        h_var_list = tf.split(h_temp, num_or_size_splits = len(h_list), axis = 0) 
+        
+        # ?
+        att_regul = tf.nn.l2_loss(w_temp) + tf.nn.l2_loss(w_decay)
+        
+    return tf.squeeze(tf.concat(h_var_list, 2)), att_regul, temp_weight
+    
+# ---- multi-variate RNN ----
+
+class tsLSTM_mv():
+    
+    def __init__(self, n_dense_dim_layers, n_lstm_dim_layers, n_steps, n_data_dim, session,\
+                 lr, l2, max_norm , n_batch_size, bool_residual, bool_att, decay, attention):
+        
+        self.LEARNING_RATE = lr
+        self.L2 =  l2
+        
+        self.n_lstm_dim_layers = n_lstm_dim_layers
+        
+        self.N_STEPS    = n_steps
+        self.N_DATA_DIM = n_data_dim
+        
+        self.n_dense_dim_layers = n_dense_dim_layers
+        self.n_batch_size       = n_batch_size
+        
+        # placeholders
+        self.x = tf.placeholder(tf.float32, [None, self.N_STEPS, self.N_DATA_DIM])
+        self.y = tf.placeholder(tf.float32, [None, 1])
+        self.keep_prob = tf.placeholder(tf.float32)
+        
+        steps = tf.constant( range(self.N_STEPS-2, -1, -1), dtype=tf.float32 )
+        
+        # begin to build the graph
+        self.sess = session
+        
+        # residual connections
+        if bool_residual == True:
+            
+            print '!! Wrongly use residual connection'
+            
+        # no residual connection 
+        else:
+            
+            # no attention
+            if bool_att == '':
+                
+                print ' --- Using no attention: '
+                
+                with tf.variable_scope('lstm'):
+                    lstm_cell = MvLSTMCell( n_lstm_dim_layers[0], n_var = n_data_dim, \
+                                           initializer=tf.contrib.layers.xavier_initializer() )
+                    h, state = tf.nn.dynamic_rnn(cell = lstm_cell, inputs = self.x, dtype = tf.float32)
+            
+                # obtain the last hidden state    
+                tmp_hiddens = tf.transpose( h, [1,0,2] )
+                h = tmp_hiddens[-1]
+                
+                # test
+                self.test = tf.shape(h)
+                
+                h, regul = plain_dense( h, n_lstm_dim_layers[-1], n_dense_dim_layers, 'dense', self.keep_prob )
+                regu_all = regul
+            
+            
+            elif bool_att == 'temp':
+                
+                print ' --- Using temporal attention: '
+
+                with tf.variable_scope('lstm'):
+                    
+                    lstm_cell = MvLSTMCell( n_lstm_dim_layers[0], n_var = n_data_dim ,\
+                                           initializer = tf.contrib.layers.xavier_initializer() )
+                    h, state = tf.nn.dynamic_rnn(cell = lstm_cell, inputs = self.x, dtype = tf.float32)
+                
+                h_list = tf.split(h, [int(n_lstm_dim_layers[0]/self.N_DATA_DIM)]*self.N_DATA_DIM, 2)
+                
+                # test
+                #self.test = tf.shape(h_list)
+                
+                h_att, regu_att, self.att =\
+                mv_attention_temp_concat_weight_decay( h_list, int(n_lstm_dim_layers[0]/self.N_DATA_DIM),\
+                                                       'att', self.N_STEPS, steps, decay, attention )
+                # test
+                self.test = tf.shape(h_att)
+                
+                # ?
+                h, regul = plain_dense( h_att, n_lstm_dim_layers[-1]*2, n_dense_dim_layers, 'dense', self.keep_prob )
+                
+                # ?
+                regu_all = regul + regu_att
+                
+            elif bool_att == 'both':
+                
+                print ' --- Using both temporal and variate attention: '
+                
+                with tf.variable_scope('lstm'):
+                    lstm_cell = MvLSTMCell( n_lstm_dim_layers[0], n_var = n_data_dim ,\
+                                           initializer = tf.contrib.layers.xavier_initializer() )
+                    h, state = tf.nn.dynamic_rnn(cell = lstm_cell, inputs = self.x, dtype = tf.float32)
+                
+                h_list = tf.split(h, [int(n_lstm_dim_layers[0]/self.N_DATA_DIM)]*self.N_DATA_DIM, 2)
+                 
+                # test
+                self.test = tf.shape(h_list)
+                
+                # ?
+                h_att, regu_att, self.att = mv_attention_variate_temp_logit(h_list,int(n_lstm_dim_layers[0]/self.N_DATA_DIM),\
+                                                                           'att', self.N_STEPS)
+                
+                h, regul = plain_dense( h_att, n_lstm_dim_layers[-1]*2, n_dense_dim_layers, 'dense', self.keep_prob )
+                
+                # ?
+                regu_all = regul + regu_att
+        
+        #dropout
+        #last_hidden = tf.nn.dropout(last_hidden, self.keep_prob)
+        with tf.variable_scope("output"):
+            
+            w = tf.get_variable('w', shape=[n_dense_dim_layers[-1], 1],\
+                                     initializer=tf.contrib.layers.xavier_initializer())
+            b = tf.Variable(tf.zeros([1]))
+            self.py = tf.matmul(h, w) + b
+            
+            self.regularization = regu_all + tf.nn.l2_loss(w)
+        
+        # add regularization in LSTM 
+        self.regul_lstm = sum( tf.nn.l2_loss(tf_var) for tf_var in tf.trainable_variables() \
+                                   if ("lstm" in tf_var.name and "input" in tf_var.name))
+        # ?
+        #self.regularization += self.regul_lstm
+
+        
+    def train_ini(self):  
+        # loss function 
+        self.cost = tf.reduce_mean( tf.square(self.y - self.py) ) + self.L2*self.regularization
+        
+        self.optimizer = \
+        tf.train.AdamOptimizer(learning_rate = self.LEARNING_RATE).minimize(self.cost)  
+        
+        self.init = tf.global_variables_initializer()
+        self.sess.run( [self.init] )
+        
+    def train_batch(self, x_batch, y_batch, keep_prob ):
+        _, c = self.sess.run([self.optimizer, self.cost],\
+                              feed_dict={self.x:x_batch, self.y:y_batch, self.keep_prob:keep_prob })
+        return c
+
+#   initialize inference         
+    def inference_ini(self):
+#       denormalzied RMSE  
+        self.rmse = tf.sqrt( tf.reduce_mean( tf.square( self.y - self.py ) ) )
+        self.y_hat= self.py
+        
+#   infer givn testing data    
+    def inference(self, x_test, y_test, keep_prob):
+        return self.sess.run([self.rmse], feed_dict = {self.x:x_test, self.y:y_test,\
+                                                                            self.keep_prob:keep_prob})
+    
+    def predict(self, x_test, y_test, keep_prob):
+        return self.sess.run([self.y_hat], feed_dict = {self.x:x_test, self.y:y_test, self.keep_prob:keep_prob})
+    
+    
+    def test_regularization(self, x_test, y_test, keep_prob):
+        return self.sess.run([self.L2*self.regularization], feed_dict = {self.x:x_test, self.y:y_test,\
+                                                                            self.keep_prob:keep_prob})
+    
+    def test_attention(self, x_test, y_test, keep_prob):
+        return self.sess.run([self.att],  feed_dict = {self.x:x_test, self.y:y_test, self.keep_prob:keep_prob})
+    
+    def testfunc(self, x_batch, y_batch, keep_prob ):
+        tmpname= []
+        for tf_var in tf.trainable_variables():
+            tmpname.append( tf_var.name )
+            
+        #self.test, regul_lstm    
+        return tmpname, self.sess.run([self.test],\
+                            feed_dict={self.x:x_batch, self.y:y_batch, self.keep_prob:keep_prob })
+  
+
 '''
+# --- backup code
+
 def mv_attention_temp_logit_concat_exp_decay( h_list, h_dim, scope, step, step_idx ):
     
     with tf.variable_scope(scope):
@@ -652,7 +913,7 @@ def mv_attention_temp_logit_concat_exp_decay( h_list, h_dim, scope, step, step_i
         h_var_list = tf.split(h_temp, num_or_size_splits = len(h_list), axis = 0) 
         
     return tf.squeeze(tf.concat(h_var_list, 2)), tf.nn.l2_loss(w_temp), temp_weight
-'''
+
 def mv_attention_temp_location_weight_decay( h_list, h_dim, scope, step, step_idx, activation ):
     
     with tf.variable_scope(scope):
@@ -808,41 +1069,11 @@ def mv_attention_temp_concat_weight_decay( h_list, h_dim, scope, step, step_idx,
         att_regul = tf.nn.l2_loss(w_temp) + tf.nn.l2_loss(w_decay)
         
     return tf.squeeze(tf.concat(h_var_list, 2)), att_regul, temp_weight
-    
-# ---- multi-variate RNN ----
+'''
 
-class tsLSTM_mv():
-    
-    def __init__(self, n_dense_dim_layers, n_lstm_dim_layers, n_steps, n_data_dim, session,\
-                 lr, l2, max_norm , n_batch_size, bool_residual, bool_att):
-        
-        self.LEARNING_RATE = lr
-        self.L2 =  l2
-        
-        self.n_lstm_dim_layers = n_lstm_dim_layers
-        
-        self.N_STEPS    = n_steps
-        self.N_DATA_DIM = n_data_dim
-        
-        self.n_dense_dim_layers = n_dense_dim_layers
-        self.n_batch_size       = n_batch_size
-        
-        # placeholders
-        self.x = tf.placeholder(tf.float32, [None, self.N_STEPS, self.N_DATA_DIM])
-        self.y = tf.placeholder(tf.float32, [None, 1])
-        self.keep_prob = tf.placeholder(tf.float32)
-        
-        steps = tf.constant( range(self.N_STEPS-2, -1, -1), dtype=tf.float32 )
-        
-        # begin to build the graph
-        self.sess = session
-        
-        # residual connections
-        if bool_residual == True:
-            
-            print '!! Wrongly use residual connection'
-            
-            '''
+'''
+# residual connections
+
             # no attention
             if bool_att == '':
                 
@@ -910,145 +1141,3 @@ class tsLSTM_mv():
                                      'dense', self.keep_prob )
                 regu_all = regu_att + regul
             '''
-            
-        # no residual connection 
-        else:
-            
-            # no attention
-            if bool_att == '':
-                
-                print ' --- Using no attention: '
-                
-                with tf.variable_scope('lstm'):
-                    lstm_cell = MvLSTMCell( n_lstm_dim_layers[0], n_var = n_data_dim, \
-                                           initializer=tf.contrib.layers.xavier_initializer() )
-                    h, state = tf.nn.dynamic_rnn(cell = lstm_cell, inputs = self.x, dtype = tf.float32)
-            
-                # obtain the last hidden state    
-                tmp_hiddens = tf.transpose( h, [1,0,2] )
-                h = tmp_hiddens[-1]
-                
-                # test
-                self.test = tf.shape(h)
-                
-                h, regul = plain_dense( h, n_lstm_dim_layers[-1], n_dense_dim_layers, 'dense', self.keep_prob )
-                regu_all = regul
-            
-            
-            elif bool_att == 'temp':
-                
-                print ' --- Using temporal attention: '
-
-                with tf.variable_scope('lstm'):
-                    lstm_cell = MvLSTMCell( n_lstm_dim_layers[0], n_var = n_data_dim ,\
-                                           initializer = tf.contrib.layers.xavier_initializer() )
-                    h, state = tf.nn.dynamic_rnn(cell = lstm_cell, inputs = self.x, dtype = tf.float32)
-                
-                h_list = tf.split(h, [int(n_lstm_dim_layers[0]/self.N_DATA_DIM)]*self.N_DATA_DIM, 2)
-                
-                # test
-                #self.test = tf.shape(h_list)
-                
-                #h_att, regu_att, self.att = mv_attention_temp_logit_concat(h_list, int(n_lstm_dim_layers[0]/self.N_DATA_DIM),\
-                #                                                           'att', self.N_STEPS)
-                
-                h_att, regu_att, self.att =\
-                mv_attention_temp_general_weight_decay( h_list, int(n_lstm_dim_layers[0]/self.N_DATA_DIM),\
-                                                       'att', self.N_STEPS, steps, 'sigmoid' )
-                # test
-                self.test = tf.shape(h_att)
-                
-                # ?
-                h, regul = plain_dense( h_att, n_lstm_dim_layers[-1]*2, n_dense_dim_layers, 'dense', self.keep_prob )
-                
-                # ?
-                regu_all = regul + regu_att
-                
-            elif bool_att == 'both':
-                
-                print ' --- Using both temporal and variate attention: '
-                
-                with tf.variable_scope('lstm'):
-                    lstm_cell = MvLSTMCell( n_lstm_dim_layers[0], n_var = n_data_dim ,\
-                                           initializer = tf.contrib.layers.xavier_initializer() )
-                    h, state = tf.nn.dynamic_rnn(cell = lstm_cell, inputs = self.x, dtype = tf.float32)
-                
-                h_list = tf.split(h, [int(n_lstm_dim_layers[0]/self.N_DATA_DIM)]*self.N_DATA_DIM, 2)
-                 
-                # test
-                self.test = tf.shape(h_list)
-                
-                # ?
-                h_att, regu_att, self.att = mv_attention_variate_temp_logit(h_list,int(n_lstm_dim_layers[0]/self.N_DATA_DIM),\
-                                                                           'att', self.N_STEPS)
-                
-                h, regul = plain_dense( h_att, n_lstm_dim_layers[-1]*2, n_dense_dim_layers, 'dense', self.keep_prob )
-                
-                # ?
-                regu_all = regul + regu_att
-        
-        #dropout
-        #last_hidden = tf.nn.dropout(last_hidden, self.keep_prob)
-        with tf.variable_scope("output"):
-            
-            w = tf.get_variable('w', shape=[n_dense_dim_layers[-1], 1],\
-                                     initializer=tf.contrib.layers.xavier_initializer())
-            b = tf.Variable(tf.zeros([1]))
-            self.py = tf.matmul(h, w) + b
-            
-            self.regularization = regu_all + tf.nn.l2_loss(w)
-        
-        # add regularization in LSTM 
-        self.regul_lstm = sum( tf.nn.l2_loss(tf_var) for tf_var in tf.trainable_variables() \
-                                   if ("lstm" in tf_var.name and "input" in tf_var.name))
-        # ?
-        #self.regularization += self.regul_lstm
-
-        
-    def train_ini(self):  
-        # loss function 
-        self.cost = tf.reduce_mean( tf.square(self.y - self.py) ) + self.L2*self.regularization
-        
-        self.optimizer = \
-        tf.train.AdamOptimizer(learning_rate = self.LEARNING_RATE).minimize(self.cost)  
-        
-        self.init = tf.global_variables_initializer()
-        self.sess.run( [self.init] )
-        
-    def train_batch(self, x_batch, y_batch, keep_prob ):
-        _, c = self.sess.run([self.optimizer, self.cost],\
-                              feed_dict={self.x:x_batch, self.y:y_batch, self.keep_prob:keep_prob })
-        return c
-
-#   initialize inference         
-    def inference_ini(self):
-#       denormalzied RMSE  
-        self.rmse = tf.sqrt( tf.reduce_mean( tf.square( self.y - self.py ) ) )
-        self.y_hat= self.py
-        
-#   infer givn testing data    
-    def inference(self, x_test, y_test, keep_prob):
-        return self.sess.run([self.rmse], feed_dict = {self.x:x_test, self.y:y_test,\
-                                                                            self.keep_prob:keep_prob})
-    
-    def predict(self, x_test, y_test, keep_prob):
-        return self.sess.run([self.y_hat], feed_dict = {self.x:x_test, self.y:y_test, self.keep_prob:keep_prob})
-    
-    
-    def test_regularization(self, x_test, y_test, keep_prob):
-        return self.sess.run([self.L2*self.regularization], feed_dict = {self.x:x_test, self.y:y_test,\
-                                                                            self.keep_prob:keep_prob})
-    
-    def test_attention(self, x_test, y_test, keep_prob):
-        return self.sess.run([self.att],  feed_dict = {self.x:x_test, self.y:y_test, self.keep_prob:keep_prob})
-    
-    def testfunc(self, x_batch, y_batch, keep_prob ):
-        tmpname= []
-        for tf_var in tf.trainable_variables():
-            tmpname.append( tf_var.name )
-            
-        #self.test, regul_lstm    
-        return tmpname, self.sess.run([self.test],\
-                            feed_dict={self.x:x_batch, self.y:y_batch, self.keep_prob:keep_prob })
-  
-        

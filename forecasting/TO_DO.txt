@@ -27,7 +27,6 @@ time decay attention:
 
 model saver, training and testing data, attentions 
 
-
 Batchnorm, Layer norm
 
 Computation time 

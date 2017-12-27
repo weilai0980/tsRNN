@@ -110,7 +110,7 @@ if __name__ == '__main__':
     
     # -- mv --
     para_lstm_dims_mv = [120]
-    para_dense_dims_mv = [32, 32]
+    para_dense_dims_mv = [32, 8]
     # no att: 32, 8
     # temp: 32
 
@@ -119,11 +119,15 @@ if __name__ == '__main__':
     # temp: 0.002
     para_batch_size_mv = 64
     
-    para_l2_mv = 0.001
+    para_l2_mv = 0.0001
     # no att: 0.01
     # temp att: 0.03
     # temp-var att: 
     para_keep_prob_mv = 1.0
+    
+    para_decay_type = 'sigmoid'
+    para_attention_type = 'loc'
+    
     
 #--- build and train the model ---
     
@@ -164,7 +168,8 @@ if __name__ == '__main__':
         elif method_str == 'mv':
             reg = tsLSTM_mv(para_dense_dims_mv, para_lstm_dims_mv, \
                             para_win_size,   para_input_dim, sess, \
-                            para_lr_mv, para_l2_mv, para_max_norm, para_batch_size_mv, para_bool_residual, para_bool_attention)
+                            para_lr_mv, para_l2_mv, para_max_norm, para_batch_size_mv, para_bool_residual, \
+                            para_bool_attention, para_decay_type,  para_attention_type)
             
             log_file += "_mv.txt"
             model_file += "_mv"
