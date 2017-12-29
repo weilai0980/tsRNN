@@ -20,10 +20,16 @@ w1 = tf.get_variable('w1', [4, 1, 7, 7], dtype = tf.float32, initializer = tf.co
 
 w2 = tf.tile(w1, [1,1, 6, 1])
 
-res = tf.shape( tf.reduce_sum(w*w1, 2) )
+tmp = tf.reduce_sum(w*w1, -1)
+
+tmp1 = tf.split(tmp, num_or_size_splits = 4, axis = 0 )
+
+tmp2 = tf.concat(tmp1, 2) 
+
+tmp3 = tf.squeeze(tmp2, [0])
 #res = tf.tensordot(w, w1, [[2], [1]])
 
-#res = tf.concat( [w, w2], 3 )
+res = tf.shape( tmp3 )
 
 with tf.Session() as sess:
     

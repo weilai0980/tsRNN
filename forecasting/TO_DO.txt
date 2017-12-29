@@ -25,6 +25,8 @@ time decay attention:
   
 --- To do ---
 
+mv_rnn final speed-up
+
 model saver, training and testing data, attentions 
 
 Batchnorm, Layer norm

@@ -16,10 +16,12 @@ from ts_mv_rnn import *
 from utils_libs import *
 
 
-# check list:
+# ---- check list ----
 # attention: non, temp, both
 # lr and l2
+
 # bias and activation in attention
+
 # regularization on attention
 # regularization on lstm
 
@@ -110,7 +112,7 @@ if __name__ == '__main__':
     
     # -- mv --
     para_lstm_dims_mv = [120]
-    para_dense_dims_mv = [32, 8]
+    para_dense_dims_mv = [32, 16, 8]
     # no att: 32, 8
     # temp: 32
 
@@ -120,13 +122,13 @@ if __name__ == '__main__':
     para_batch_size_mv = 64
     
     para_l2_mv = 0.0001
-    # no att: 0.01
-    # temp att: 0.03
-    # temp-var att: 
+    # no att: 0.001
+    # temp loc: 0.005
+    # temp-var: 
     para_keep_prob_mv = 1.0
     
     para_decay_type = 'sigmoid'
-    para_attention_type = 'loc'
+    para_attention_type = 'concat'
     
     
 #--- build and train the model ---

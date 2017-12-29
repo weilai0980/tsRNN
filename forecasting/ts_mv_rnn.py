@@ -632,14 +632,14 @@ def mv_attention_temp_concat_weight_decay( h_list, h_dim, scope, step, step_idx,
         tmph = tf.stack(h_list, 0)
         tmph_before, tmph_last = tf.split(tmph, [step-1, 1], 2)
         
+        # -- temporal logits
         if att_type == 'loc':
             
             w_temp = tf.get_variable('w_temp', [len(h_list), 1, 1, h_dim], initializer=tf.contrib.layers.xavier_initializer())
             b_temp = tf.Variable( tf.random_normal([len(h_list), 1, 1, 1]) )
             
-            # temporal logits
             # ? bias nonlinear activation ?
-            temp_logit = tf.reduce_sum(tmph_before*w_temp + b_temp, 3) 
+            temp_logit = tf.reduce_sum(tmph_before * w_temp, 3) 
             
         elif att_type == 'general':
             
@@ -647,7 +647,6 @@ def mv_attention_temp_concat_weight_decay( h_list, h_dim, scope, step, step_idx,
                                      initializer=tf.contrib.layers.xavier_initializer())
             b_temp = tf.Variable( tf.random_normal([len(h_list), 1, 1, 1]) )
             
-            # temporal logits
             #[V, B, 1, D]
             tmp = tf.reduce_sum(tmph_last * w_temp, 3)
             tmp = tf.expand_dims(tmp, 2)
@@ -661,12 +660,12 @@ def mv_attention_temp_concat_weight_decay( h_list, h_dim, scope, step, step_idx,
                                      initializer=tf.contrib.layers.xavier_initializer())
             b_temp = tf.Variable( tf.random_normal([len(h_list), 1, 1, 1]) )
             
-            # temporal logits
             # concatenate tmph_before and tmph_last
             last_tile = tf.tile(tmph_last, [1, 1, step-1, 1])
             tmph_tile = tf.concat( [tmph_before, last_tile], 3 )
+            
             # ? bias nonlinear activation ?
-            temp_logit = tf.reduce_sum(tmph_tile*w_temp + b_temp, 3) 
+            temp_logit = tf.reduce_sum(tmph_tile * w_temp, 3) 
         
         else:
             print '[ERROR] attention type'
@@ -792,7 +791,8 @@ class tsLSTM_mv():
                 h, regul = plain_dense( h_att, n_lstm_dim_layers[-1]*2, n_dense_dim_layers, 'dense', self.keep_prob )
                 
                 # ?
-                regu_all = regul + regu_att
+                regu_all = regul 
+                #+ regu_att
                 
             elif bool_att == 'both':
                 
@@ -815,7 +815,11 @@ class tsLSTM_mv():
                 h, regul = plain_dense( h_att, n_lstm_dim_layers[-1]*2, n_dense_dim_layers, 'dense', self.keep_prob )
                 
                 # ?
-                regu_all = regul + regu_att
+                regu_all = regul 
+                #+ regu_att
+                
+            else:
+                print '[ERROR] add attention'
         
         #dropout
         #last_hidden = tf.nn.dropout(last_hidden, self.keep_prob)
