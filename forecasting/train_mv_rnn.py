@@ -119,16 +119,18 @@ if __name__ == '__main__':
     para_lr_mv = 0.002
     # no att: 0.002
     # temp: 0.002
+    # temp general 0.003
     para_batch_size_mv = 64
     
-    para_l2_mv = 0.0001
+    para_l2_dense_mv = 0.0001
+    para_l2_att_mv = 0.00001
     # no att: 0.001
-    # temp loc: 0.005
+    # temp loc: 0.005, 164, bias 159 
     # temp-var: 
     para_keep_prob_mv = 1.0
     
-    para_decay_type = 'sigmoid'
-    para_attention_type = 'concat'
+    para_decay_type = ''
+    para_attention_type = 'loc'
     
     
 #--- build and train the model ---
@@ -136,6 +138,9 @@ if __name__ == '__main__':
     # clear graph
     tf.reset_default_graph()
     
+    # fix the random seed to stabilize the network 
+    np.random.seed(1)
+    tf.set_random_seed(1)
     
     with tf.Session() as sess:
         
@@ -170,8 +175,10 @@ if __name__ == '__main__':
         elif method_str == 'mv':
             reg = tsLSTM_mv(para_dense_dims_mv, para_lstm_dims_mv, \
                             para_win_size,   para_input_dim, sess, \
-                            para_lr_mv, para_l2_mv, para_max_norm, para_batch_size_mv, para_bool_residual, \
-                            para_bool_attention, para_decay_type,  para_attention_type)
+                            para_lr_mv, para_max_norm, para_batch_size_mv, para_bool_residual, \
+                            para_bool_attention, para_decay_type,  para_attention_type, para_l2_dense_mv,\
+                            para_l2_att_mv)
+            
             
             log_file += "_mv.txt"
             model_file += "_mv"

@@ -132,7 +132,7 @@ def attention_temp_mlp( h, h_dim, att_dim, scope ):
     with tf.variable_scope(scope):
         
         w = tf.get_variable('w', [h_dim, att_dim], initializer=tf.contrib.layers.xavier_initializer())
-        #? add bias?
+        #? add bias ?
         tmp_h = tf.nn.relu( tf.tensordot(h, w, axes=1) )
 
         w_logit = tf.get_variable('w_log', [att_dim, 1], initializer=tf.contrib.layers.xavier_initializer())
@@ -328,7 +328,7 @@ def attention_variate_temp_mlp( h_list, h_dim, scope, step ):
         tmph_before, tmph_last = tf.split(tmph, [step-1, 1], 2)
         tmph_last = tf.squeeze( tmph_last, [2] )
         
-        # ? bias nonlinear activation?
+        # ? bias nonlinear activation ?
         temp_logit = tf.reduce_sum( tmph_before*w_temp, 3 )
         temp_weight = tf.nn.softmax( temp_logit )
         
@@ -356,7 +356,7 @@ def attention_temp_logit( h_list, h_dim, scope, step ):
         tmph_before, tmph_last = tf.split(tmph, [step-1, 1], 2)
         tmph_last = tf.squeeze( tmph_last, [2] )
         
-        # ? bias nonlinear activation?
+        # ? bias nonlinear activation ?
         temp_logit = tf.reduce_sum( tmph_before*w_temp, 3 )
         temp_weight = tf.nn.softmax( temp_logit )
         
@@ -381,7 +381,7 @@ def attention_variate_temp_logit( h_list, h_dim, scope, step ):
         tmph_before, tmph_last = tf.split(tmph, [step-1, 1], 2)
         tmph_last = tf.squeeze( tmph_last, [2] )
         
-        # ? bias nonlinear activation?
+        # ? bias nonlinear activation ?
         temp_logit = tf.reduce_sum( tmph_before*w_temp, 3 )
         temp_weight = tf.nn.softmax( temp_logit )
         
@@ -536,7 +536,7 @@ def mv_attention_temp_logit_all( h_list, h_dim, scope, step ):
         #tmph_before, tmph_last = tf.split(tmph, [step-1, 1], 2)
         #tmph_last = tf.squeeze( tmph_last, [2] )
         
-        # ? bias nonlinear activation?
+        # ? bias nonlinear activation ?
         temp_logit = tf.reduce_sum( tmph*w_temp+b_temp, 3 )
         temp_weight = tf.nn.softmax( temp_logit )
         
@@ -560,7 +560,7 @@ def mv_attention_temp_logit_add( h_list, h_dim, scope, step ):
         tmph_before, tmph_last = tf.split(tmph, [step-1, 1], 2)
         tmph_last = tf.squeeze( tmph_last, [2] )
         
-        # ? bias nonlinear activation?
+        # ? bias nonlinear activation ?
         temp_logit = tf.reduce_sum( tmph_before*w_temp+b_temp, 3 )
         temp_weight = tf.nn.softmax( temp_logit )
         
@@ -606,7 +606,7 @@ def mv_attention_variate_temp_logit( h_list, h_dim, scope, step ):
         tmph_before, tmph_last = tf.split(tmph, [step-1, 1], 2)
         tmph_last = tf.squeeze( tmph_last, [2] )
         
-        # ? bias nonlinear activation?
+        # ? bias nonlinear activation ?
         temp_logit = tf.reduce_sum( tmph_before*w_temp, 3 )
         temp_weight = tf.nn.softmax( temp_logit )
         
@@ -630,6 +630,7 @@ def mv_attention_temp_concat_weight_decay( h_list, h_dim, scope, step, step_idx,
     with tf.variable_scope(scope):
         
         tmph = tf.stack(h_list, 0)
+        # [V B T-1 D], [V, B, 1, D]
         tmph_before, tmph_last = tf.split(tmph, [step-1, 1], 2)
         
         # -- temporal logits
@@ -639,7 +640,8 @@ def mv_attention_temp_concat_weight_decay( h_list, h_dim, scope, step, step_idx,
             b_temp = tf.Variable( tf.random_normal([len(h_list), 1, 1, 1]) )
             
             # ? bias nonlinear activation ?
-            temp_logit = tf.reduce_sum(tmph_before * w_temp, 3) 
+            #[V, B, T-1]
+            temp_logit = tf.reduce_sum( tmph_before * w_temp, 3 ) 
             
         elif att_type == 'general':
             
@@ -648,11 +650,11 @@ def mv_attention_temp_concat_weight_decay( h_list, h_dim, scope, step, step_idx,
             b_temp = tf.Variable( tf.random_normal([len(h_list), 1, 1, 1]) )
             
             #[V, B, 1, D]
-            tmp = tf.reduce_sum(tmph_last * w_temp, 3)
+            tmp = tf.reduce_sum( tmph_last * w_temp, 3 )
             tmp = tf.expand_dims(tmp, 2)
         
             # ? bias nonlinear activation ?
-            temp_logit = tf.nn.relu( tf.reduce_sum(tmph_before * tmp, 3) )
+            temp_logit = tf.reduce_sum(tmph_before * tmp, 3)
             
         elif att_type == 'concat':
             
@@ -665,7 +667,7 @@ def mv_attention_temp_concat_weight_decay( h_list, h_dim, scope, step, step_idx,
             tmph_tile = tf.concat( [tmph_before, last_tile], 3 )
             
             # ? bias nonlinear activation ?
-            temp_logit = tf.reduce_sum(tmph_tile * w_temp, 3) 
+            temp_logit = tf.reduce_sum( tmph_tile * w_temp, 3 ) 
         
         else:
             print '[ERROR] attention type'
@@ -676,24 +678,55 @@ def mv_attention_temp_concat_weight_decay( h_list, h_dim, scope, step, step_idx,
         w_decay = tf.square(w_decay)
         
         b_decay = tf.Variable( tf.random_normal([len(h_list), 1]) )
-        
         step_idx = tf.reshape(step_idx, [1, step-1])
+        
+        #  new added
+        # [V, T-1]
+        v_step = tf.tile(step_idx, [len(h_list), 1])
+        
+        # [V, T-1]
+        cutoff_decay = tf.Variable( tf.random_normal([len(h_list), 1]) )
+        cutoff_decay = tf.sigmoid(cutoff_decay)*(step-1)
         
         # ? bias ?
         if decay_activation == 'exp':
-            temp_decay = tf.exp( tf.matmul(w_decay, -1*step_idx) )
+            #temp_decay = tf.exp( tf.matmul(w_decay, -1*step_idx) )
+            #temp_decay = tf.expand_dims(temp_decay, 1)
+            
+            # ? bias ?
+            temp_decay = tf.exp(w_decay*(cutoff_decay - v_step))
+            temp_decay = tf.expand_dims(temp_decay, 1)
+            # [V, 1, T-1]
+            
         elif decay_activation == 'sigmoid':
-            temp_decay = tf.sigmoid( tf.matmul(w_decay, -1*step_idx) )
+            #temp_decay = tf.sigmoid( tf.matmul(w_decay, -1*step_idx) )
+            #temp_decay = tf.expand_dims(temp_decay, 1)
+            
+            # ? bias ?
+            temp_decay = tf.sigmoid(w_decay*(cutoff_decay - v_step)) 
+            temp_decay = tf.expand_dims(temp_decay, 1)
+            # [V, 1, T-1]
+            
         else:
-            print '[ERROR] decay activiaiton type'
+            # no attention decay
+            temp_weight = tf.nn.softmax( temp_logit )
+            
+            # temp_before [V B T-1 D], temp_weight [V B T-1]
+            tmph_cxt = tf.reduce_sum(tmph_before*tf.expand_dims(temp_weight, -1), 2)
+            tmph_last = tf.squeeze( tmph_last, [2] ) 
+            
+            h_temp = tf.concat([tmph_cxt, tmph_last], 2)
+            h_var_list = tf.split(h_temp, num_or_size_splits = len(h_list), axis = 0) 
         
-        temp_decay = tf.expand_dims(temp_decay, 1)
+            return tf.squeeze(tf.concat(h_var_list, 2)), tf.nn.l2_loss(w_temp), temp_weight
         
-        # decay on temporal logit
+        # -- decay on temporal logit
+        # [V, B, T-1] * [V, 1, T-1]
         temp_logit  = temp_logit*temp_decay
         temp_weight = tf.nn.softmax( temp_logit )
         
         # -- attention weighted context
+        # tmph_before [V B T-1 D]
         tmph_cxt = tf.reduce_sum( tmph_before*tf.expand_dims(temp_weight, -1), 2 )
         
         # [context, last hidden]
@@ -704,20 +737,17 @@ def mv_attention_temp_concat_weight_decay( h_list, h_dim, scope, step, step_idx,
         
         h_var_list = tf.split(h_temp, num_or_size_splits = len(h_list), axis = 0) 
         
-        # ?
-        att_regul = tf.nn.l2_loss(w_temp) + tf.nn.l2_loss(w_decay)
-        
-    return tf.squeeze(tf.concat(h_var_list, 2)), att_regul, temp_weight
+    return tf.squeeze(tf.concat(h_var_list, 2)), [tf.nn.l2_loss(w_temp),  tf.nn.l2_loss(w_decay)], temp_weight
     
 # ---- multi-variate RNN ----
 
 class tsLSTM_mv():
     
     def __init__(self, n_dense_dim_layers, n_lstm_dim_layers, n_steps, n_data_dim, session,\
-                 lr, l2, max_norm , n_batch_size, bool_residual, bool_att, decay, attention):
+                 lr, max_norm , n_batch_size, bool_residual, bool_att, decay, attention, \
+                 l2_dense, l2_att):
         
         self.LEARNING_RATE = lr
-        self.L2 =  l2
         
         self.n_lstm_dim_layers = n_lstm_dim_layers
         
@@ -762,8 +792,8 @@ class tsLSTM_mv():
                 # test
                 self.test = tf.shape(h)
                 
-                h, regul = plain_dense( h, n_lstm_dim_layers[-1], n_dense_dim_layers, 'dense', self.keep_prob )
-                regu_all = regul
+                h, regu_dense = plain_dense( h, n_lstm_dim_layers[-1], n_dense_dim_layers, 'dense', self.keep_prob )
+                regu_all = l2_dense*regu_dense
             
             
             elif bool_att == 'temp':
@@ -781,18 +811,20 @@ class tsLSTM_mv():
                 # test
                 #self.test = tf.shape(h_list)
                 
-                h_att, regu_att, self.att =\
+                h_att, regu_att, self.att = \
                 mv_attention_temp_concat_weight_decay( h_list, int(n_lstm_dim_layers[0]/self.N_DATA_DIM),\
                                                        'att', self.N_STEPS, steps, decay, attention )
                 # test
                 self.test = tf.shape(h_att)
                 
                 # ?
-                h, regul = plain_dense( h_att, n_lstm_dim_layers[-1]*2, n_dense_dim_layers, 'dense', self.keep_prob )
+                h, regu_dense = plain_dense( h_att, n_lstm_dim_layers[-1]*2, n_dense_dim_layers, 'dense', self.keep_prob )
                 
                 # ?
-                regu_all = regul 
-                #+ regu_att
+                if decay == '':
+                    regu_all = l2_dense*regu_dense + l2_att*regu_att
+                else:
+                    regu_all = l2_dense*regu_dense + l2_att*(regu_att[0] + regu_att[1]) 
                 
             elif bool_att == 'both':
                 
@@ -812,10 +844,10 @@ class tsLSTM_mv():
                 h_att, regu_att, self.att = mv_attention_variate_temp_logit(h_list,int(n_lstm_dim_layers[0]/self.N_DATA_DIM),\
                                                                            'att', self.N_STEPS)
                 
-                h, regul = plain_dense( h_att, n_lstm_dim_layers[-1]*2, n_dense_dim_layers, 'dense', self.keep_prob )
+                h, regu_dense = plain_dense( h_att, n_lstm_dim_layers[-1]*2, n_dense_dim_layers, 'dense', self.keep_prob )
                 
                 # ?
-                regu_all = regul 
+                regu_all = l2_dense*regu_dense 
                 #+ regu_att
                 
             else:
@@ -830,18 +862,19 @@ class tsLSTM_mv():
             b = tf.Variable(tf.zeros([1]))
             self.py = tf.matmul(h, w) + b
             
-            self.regularization = regu_all + tf.nn.l2_loss(w)
+            self.regularization = regu_all + l2_dense*tf.nn.l2_loss(w)
         
         # add regularization in LSTM 
         self.regul_lstm = sum( tf.nn.l2_loss(tf_var) for tf_var in tf.trainable_variables() \
                                    if ("lstm" in tf_var.name and "input" in tf_var.name))
+        
         # ?
         #self.regularization += self.regul_lstm
 
         
     def train_ini(self):  
         # loss function 
-        self.cost = tf.reduce_mean( tf.square(self.y - self.py) ) + self.L2*self.regularization
+        self.cost = tf.reduce_mean( tf.square(self.y - self.py) ) + self.regularization
         
         self.optimizer = \
         tf.train.AdamOptimizer(learning_rate = self.LEARNING_RATE).minimize(self.cost)  
@@ -870,7 +903,7 @@ class tsLSTM_mv():
     
     
     def test_regularization(self, x_test, y_test, keep_prob):
-        return self.sess.run([self.L2*self.regularization], feed_dict = {self.x:x_test, self.y:y_test,\
+        return self.sess.run([self.regularization], feed_dict = {self.x:x_test, self.y:y_test,\
                                                                             self.keep_prob:keep_prob})
     
     def test_attention(self, x_test, y_test, keep_prob):
