@@ -22,10 +22,11 @@ mv_lstmcell speed up
 
 time decay attention:
   variate specific decay
-  
---- To do ---
 
 mv_rnn final speed-up
+
+--- To do ---
+
 
 model saver, training and testing data, attentions 
 
@@ -39,7 +40,6 @@ statistical pre-processing:
   autocorrelation order
 
 some improvements on memory moduel in LSTM 
-
 
 mixed effect in temporal data: e.g. air pollution data: heterogenous 
 

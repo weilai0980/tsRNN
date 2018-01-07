@@ -15,6 +15,9 @@ from custom_rnn_cell import *
 from ts_mv_rnn import *
 from utils_libs import *
 
+# fix the random seed to stabilize the network 
+#np.random.seed(1)
+#tf.set_random_seed(1)
 
 # ---- check list ----
 # attention: non, temp, both
@@ -111,7 +114,7 @@ if __name__ == '__main__':
     para_keep_prob_sep = 1.0
     
     # -- mv --
-    para_lstm_dims_mv = [120]
+    para_lstm_dims_mv = [150]
     para_dense_dims_mv = [32, 16, 8]
     # no att: 32, 8
     # temp: 32
@@ -123,9 +126,9 @@ if __name__ == '__main__':
     para_batch_size_mv = 64
     
     para_l2_dense_mv = 0.0001
-    para_l2_att_mv = 0.00001
+    para_l2_att_mv = 0.0001
     # no att: 0.001
-    # temp loc: 0.005, 164, bias 159 
+    # temp loc: 0.005, 164,i bias 159, 
     # temp-var: 
     para_keep_prob_mv = 1.0
     
@@ -143,6 +146,10 @@ if __name__ == '__main__':
     tf.set_random_seed(1)
     
     with tf.Session() as sess:
+        
+        # fix the random seed to stabilize the network 
+        #np.random.seed(1)
+        #tf.set_random_seed(1)
         
         if method_str == 'plain':
             reg = tsLSTM_plain(para_dense_dims_plain, para_lstm_dims_plain, \
@@ -205,7 +212,7 @@ if __name__ == '__main__':
         total_idx = range(total_cnt)
         
         # test
-        print '? ? ? :', reg.testfunc(xtrain, ytrain, para_keep_prob)
+        #print '? ? ? :', reg.testfunc(xtrain, ytrain, para_keep_prob)
         
         # set up model saver
         saver = tf.train.Saver(max_to_keep = para_n_epoch)
