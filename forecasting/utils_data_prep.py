@@ -13,33 +13,8 @@ from sklearn import preprocessing
 
 import utils_libs
 
-
     
 # ---- data pre-processing ----
-
-def conti_normalization_train_dta(dta_df):
-    
-    return preprocessing.scale(dta_df)
-
-def conti_normalization_test_dta(dta_df, train_df):
-    
-    mean_dim = np.mean(train_df, axis=0)
-    std_dim = np.std(train_df, axis=0)
-    
-#    print '--test--', mean_dim, std_dim
-    
-    df=pd.DataFrame()
-    cols = train_df.columns
-    idx=0
-    
-#    print '--test--', cols
-    
-    for i in cols:
-        df[i] = (dta_df[i]- mean_dim[idx])*1.0/std_dim[idx]
-        idx=idx+1
-        
-    return df.as_matrix()
-
 
 # for both univeriate and multi-variate cases
 def instance_extraction( list_ts, win_size, is_stateful ):
@@ -226,6 +201,31 @@ def expand_x_trend( x ):
     return np.reshape(res_x, [cnt, steps-1, -1])
 
 
+def conti_normalization_train_dta(dta_df):
+    
+    return preprocessing.scale(dta_df)
+
+def conti_normalization_test_dta(dta_df, train_df):
+    
+    mean_dim = np.mean(train_df, axis=0)
+    std_dim = np.std(train_df, axis=0)
+    
+#    print '--test--', mean_dim, std_dim
+    
+    df=pd.DataFrame()
+    cols = train_df.columns
+    idx=0
+    
+#    print '--test--', cols
+    
+    for i in cols:
+        
+        df[i] = (dta_df[i]- mean_dim[idx])*1.0/(std_dim[idx]+1e-10)
+        idx=idx+1
+        
+    return df.as_matrix()
+
+
 def prepare_train_test_data(bool_add_trend, files_list):
     
     PARA_ADD_TREND = bool_add_trend
@@ -261,23 +261,11 @@ def prepare_train_test_data(bool_add_trend, files_list):
         xtrain_df = pd.DataFrame( tmp_xtrain )
         xtest_df  = pd.DataFrame( tmp_xtest )
         
-#   normalize x in training and testing datasets
-
-#    print '--test--', xtest_df.shape, xtrain_df.shape
-
-#    print '--test--', xtrain_df.iloc[:10]
-    
-#    print '--test--', np.mean(xtrain_df, axis=0)
-    
-#   test
-#    xtest = xtest_df.as_matrix()
-#    xtrain = xtrain_df.as_matrix()
 
     xtest = conti_normalization_test_dta(  xtest_df, xtrain_df )
     xtrain= conti_normalization_train_dta( xtrain_df )
         
     return xtrain, ytr, xtest, yts, original_shape_tr, original_shape_ts
-
 
 
 
@@ -365,13 +353,103 @@ def build_training_testing_data_4statistics( dta_df, target_col, indep_col, \
 # multiple independent and one target series
     else:
         
-        indep_col.append(target_col)
+        #tmpcol = indep_col
+        #tmpcol.append(target_col)
         
-        x_train = dta_df[ indep_col ][ para_train_range[0]:para_train_range[1] ].as_matrix()
+        x_train = dta_df[ indep_col+[target_col] ][ para_train_range[0]:para_train_range[1] ].as_matrix()
         
-        x_test  = dta_df[ indep_col ][ para_test_range[0]:para_test_range[1] ].as_matrix()
+        x_test  = dta_df[ indep_col+[target_col] ][ para_test_range[0]:para_test_range[1] ].as_matrix()
         
     return x_train, x_test
+
+
+
+# ---- RETAIN baseline in NIPS paper ----   
+def prepare_train_test_RETAIN(files_list, dump_path, dump_prefix):
+    
+    # --- load data and prepare data --- 
+    
+    xtrain, ytrain, xtest, ytest, tr_shape, ts_shape = prepare_train_test_data(False, files_list)
+    #print np.shape(xtrain), np.shape(ytrain), np.shape(xtest), np.shape(ytest)
+    
+    # automatically format the dimensions for univairate or multi-variate cases 
+    # always in formt [#, time_steps, data dimension]
+    
+    if len(tr_shape)==2:
+        xtrain = np.expand_dims( xtrain, 2 )
+        xtest  = np.expand_dims( xtest,  2 )
+        
+    elif len(tr_shape)==3:
+        xtrain = np.reshape( xtrain, tr_shape )
+        xtest  = np.reshape( xtest,  ts_shape )
+
+    ytrain = np.expand_dims( ytrain, 1 ) 
+    ytest  = np.expand_dims( ytest,  1 )
+        
+    print np.shape(xtrain), np.shape(ytrain), np.shape(xtest), np.shape(ytest)
+    
+    xtrain.dump(dump_path + dump_prefix + "_xtrain_nips.dat")
+    xtest.dump(dump_path + dump_prefix + "_xtest_nips.dat")
+    
+    ytrain.dump(dump_path + dump_prefix + "_ytrain_nips.dat")
+    ytest.dump(dump_path + dump_prefix + "_ytest_nips.dat")
+    
+    
+# ---- Dual-RNN baseline in IJCAI paper ---- 
+def prepare_train_test_DualRNN(data_df, target_col, feature_cols, train_range, test_range, dump_path, dump_prefix,\
+                              win_size, bool_stateful):
+    
+    dta_mat = dta_df[ feature_cols ][ train_range[0]:train_range[1] ].as_matrix()
+
+    x_train, yhis_train, y_train = instance_extraction_multiple_one_separate_target( \
+                        list(dta_df[ target_col ][ train_range[0]:train_range[1] ]),\
+                                                 list(dta_mat), win_size, bool_stateful )
+
+    dta_mat = dta_df[ feature_cols ][ test_range[0]:test_range[1] ].as_matrix()
+
+    x_test, yhis_test, y_test = instance_extraction_multiple_one_separate_target( \
+                        list(dta_df[ target_col ][ test_range[0]:test_range[1] ]),\
+                                                 list(dta_mat), win_size, bool_stateful )
+
+    # normalization
+    # X
+    cnt_tr = len(x_train)
+    cnt_ts = len(x_test)
+
+    tmp_xtrain = np.reshape( x_train, [cnt_tr, -1 ] )
+    tmp_xtest  = np.reshape( x_test,  [cnt_ts, -1 ] )
+    
+    xtrain_df = pd.DataFrame( tmp_xtrain )
+    xtest_df  = pd.DataFrame( tmp_xtest )
+
+    xtest = conti_normalization_test_dta(  xtest_df, xtrain_df )
+    xtrain= conti_normalization_train_dta( xtrain_df )
+
+    xtrain = np.reshape(xtrain, np.shape(x_train))
+    xtest = np.reshape(xtest, np.shape(x_test))
+
+    # Y
+    yhtrain_df = pd.DataFrame( yhis_train )
+    yhtest_df  = pd.DataFrame( yhis_test )
+
+    yhtest = conti_normalization_test_dta(  yhtest_df, yhtrain_df )
+    yhtrain= conti_normalization_train_dta( yhtrain_df )
+
+    # ---
+    ytrain = np.asarray(y_train)
+    ytest = np.asarray(y_test)
+
+    print np.shape(xtrain), np.shape(yhtrain), np.shape(ytrain)
+    print np.shape(xtest), np.shape(yhtest), np.shape(ytest)
+    
+    xtrain.dump(dump_path + dump_prefix + "_xtrain_dual.dat")
+    ytrain.dump(dump_path + dump_prefix + "_ytrain_dual.dat")
+    xtest.dump(dump_path + dump_prefix + "_xtest_dual.dat")
+    ytest.dump(dump_path + dump_prefix + "_ytest_dual.dat")
+
+    yhtrain.dump(dump_path + dump_prefix + "_hytrain_dual.dat")
+    yhtest.dump(dump_path + dump_prefix + "_hytest_dual.dat")
+
 
 
 ###############################################################################################33

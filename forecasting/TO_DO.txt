@@ -27,6 +27,8 @@ mv_rnn final speed-up
 
 --- To do ---
 
+soft and hart cutoff
+
 
 model saver, training and testing data, attentions 
 

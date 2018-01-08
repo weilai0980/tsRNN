@@ -63,6 +63,7 @@ if __name__ == '__main__':
     model_file = "res/model/rnn"
     attention_file = "res/att"
     PIK = "epoch_err_"
+    
 # --- network set-up ---
     
     # fixed
@@ -194,10 +195,11 @@ if __name__ == '__main__':
         
         # for test
         print len(epoch_tr_ts)
-        print epoch_tr_ts[:5]
         
         best_epoch = min(epoch_tr_ts, key = lambda x:x[2] )[0]
         best_model_file = model_file + "_" + str(best_epoch) + ".ckpt"
+        
+        print '-- best epoch: ', best_epoch
         
         # model restoring 
         #saver = tf.train.Saver()        

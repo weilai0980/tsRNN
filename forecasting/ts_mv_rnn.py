@@ -636,7 +636,7 @@ def mv_attention_temp_weight_decay( h_list, h_dim, scope, step, step_idx, decay_
             
             # ? bias nonlinear activation ?
             #[V, B, T-1]
-            temp_logit = tf.reduce_sum(tmph_before * w_temp, 3) 
+            temp_logit = tf.sigmoid( tf.reduce_sum(tmph_before * w_temp + b_temp, 3) )
             # empty and relu activation 
             # ? use relu if with decay ?
             
@@ -685,7 +685,7 @@ def mv_attention_temp_weight_decay( h_list, h_dim, scope, step, step_idx, decay_
             
             # [ V B T-1 d]
             # ? bias and activiation 
-            interm_h = tf.nn.tanh( tf.reduce_sum( tmph_tile * w_temp, 3 ) ) 
+            interm_h = tf.nn.tanh( tf.reduce_sum( tmph_tile * w_temp + b_temp, 3 ) ) 
             
             # [V 1 1 d]
             w_mlp = tf.get_variable('w_mlp', [len(h_list), 1, 1, interm_dim],\
@@ -693,13 +693,13 @@ def mv_attention_temp_weight_decay( h_list, h_dim, scope, step, step_idx, decay_
             b_mlp = tf.Variable( tf.zeros([len(h_list), 1, 1, 1]) )
             
             # ? bias nonlinear activation ?
-            temp_logit = tf.reduce_sum( interm_h * w_mlp, 3 )
+            temp_logit = tf.sigmoid( tf.tf.reduce_sum( interm_h * w_mlp, 3 ) )
         
         else:
             print '[ERROR] attention type'
         
         
-        # -- temporal decay weight
+        # -- temporal decay
         # [V 1 ]
         w_decay = tf.get_variable('w_decay', [len(h_list), 1], initializer = tf.contrib.layers.xavier_initializer())
         w_decay = tf.square(w_decay)
@@ -738,7 +738,6 @@ def mv_attention_temp_weight_decay( h_list, h_dim, scope, step, step_idx, decay_
             temp_decay = tf.expand_dims(temp_decay, 1)
             
         
-        # simplified version
         elif decay_activation == 'cutoff':
             
             # ? bias ?
@@ -751,7 +750,7 @@ def mv_attention_temp_weight_decay( h_list, h_dim, scope, step, step_idx, decay_
             temp_weight = tf.nn.softmax( temp_logit )
             
             # temp_before [V B T-1 D], temp_weight [V B T-1]
-            tmph_cxt = tf.reduce_sum(tmph_before*tf.expand_dims(temp_weight, -1), 2)
+            tmph_cxt = tf.reduce_sum( tmph_before*tf.expand_dims(temp_weight, -1), 2 )
             tmph_last = tf.squeeze( tmph_last, [2] ) 
             
             # [V B 2D]
@@ -764,8 +763,18 @@ def mv_attention_temp_weight_decay( h_list, h_dim, scope, step, step_idx, decay_
         
         # -- decay on temporal logit
         # [V, B, T-1] * [V, 1, T-1]
-        temp_logit  = temp_logit*temp_decay
-        temp_weight = tf.nn.softmax( temp_logit )
+        temp_logit_decay = temp_logit*temp_decay
+        
+        
+        # -- attention weight
+        if decay_activation == 'cutoff':
+            # [V B 1]
+            tmpsum = tf.expand_dims( tf.reduce_sum(temp_logit_decay, [2]), -1 )
+            temp_weight = 1.0*temp_logit_decay/(tmpsum+1e-10)
+            
+        else:
+            temp_weight = tf.nn.softmax( temp_logit_decay )
+        
         
         # -- attention weighted context
         # tmph_before [V B T-1 D]
@@ -782,10 +791,14 @@ def mv_attention_temp_weight_decay( h_list, h_dim, scope, step, step_idx, decay_
     
     #
     if decay_activation == 'cutoff':
-        return h_temp, tf.nn.l2_loss(w_temp), temp_weight
+        # ?
+        return h_temp, tf.nn.l2_loss(w_temp) + tf.nn.l2_loss(cutoff), temp_weight
+    
     else:
         return h_temp, [tf.nn.l2_loss(w_temp), tf.nn.l2_loss(w_decay)], temp_weight
 #tf.squeeze(tf.concat(h_var_list, 2), [0])
+    
+    
     
 # ---- multi-variate RNN ----
 

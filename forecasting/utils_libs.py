@@ -15,7 +15,6 @@ import math
 import random
 
 
-from tensorflow.python.eager import context
 from tensorflow.python.framework import constant_op
 from tensorflow.python.framework import dtypes
 from tensorflow.python.framework import ops
@@ -68,3 +67,11 @@ from keras.activations import *
 
 from utils_data_prep import *
 from utils_keras import *
+
+# statiscal models
+import statsmodels as sm
+from statsmodels.tsa.stattools import acf  
+from statsmodels.tsa.stattools import pacf
+from statsmodels.tsa.api import VAR, DynamicVAR
+
+from statsmodels.stats import diagnostic

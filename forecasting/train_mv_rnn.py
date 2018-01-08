@@ -36,16 +36,31 @@ if __name__ == '__main__':
     method_str = str(sys.argv[2])
     
     file_dic = {}
+    
     file_addr = ["../../dataset/dataset_ts/air_xtrain.dat", \
-            "../../dataset/dataset_ts/air_xtest.dat",\
-            "../../dataset/dataset_ts/air_ytrain.dat", \
-            "../../dataset/dataset_ts/air_ytest.dat"]
+                 "../../dataset/dataset_ts/air_xtest.dat",\
+                 "../../dataset/dataset_ts/air_ytrain.dat", \
+                 "../../dataset/dataset_ts/air_ytest.dat"]
     file_dic.update( {"air": file_addr} )
+    
+    file_addr = ["../../dataset/dataset_ts/energy_xtrain.dat", \
+                 "../../dataset/dataset_ts/energy_xtest.dat",\
+                 "../../dataset/dataset_ts/energy_ytrain.dat", \
+                 "../../dataset/dataset_ts/energy_ytest.dat"]
+    file_dic.update( {"energy": file_addr} )
+    
+    file_addr = ["../../dataset/dataset_ts/pm25_xtrain.dat", \
+                 "../../dataset/dataset_ts/pm25_xtest.dat",\
+                 "../../dataset/dataset_ts/pm25_ytrain.dat", \
+                 "../../dataset/dataset_ts/pm25_ytest.dat"]
+    file_dic.update( {"pm25": file_addr} )
      
     print "Loading file at", file_dic[dataset_str][0] 
     files_list = file_dic[dataset_str]
     
 # --- load data and prepare data --- 
+
+    # !! including feature normalization    
     xtrain, ytrain, xtest, ytest, tr_shape, ts_shape = prepare_train_test_data(False, files_list)
     print np.shape(xtrain), np.shape(ytrain), np.shape(xtest), np.shape(ytest)
     
@@ -125,14 +140,14 @@ if __name__ == '__main__':
     # temp general 0.003
     para_batch_size_mv = 64
     
-    para_l2_dense_mv = 0.0001
-    para_l2_att_mv = 0.0001
+    para_l2_dense_mv = 0.001
+    para_l2_att_mv = 0.00001
     # no att: 0.001
-    # temp loc: 0.005, 164,i bias 159, 
+    # temp loc:  setup 0.001, 0.00001, 161 
     # temp-var: 
     para_keep_prob_mv = 1.0
     
-    para_decay_type = ''
+    para_decay_type = 'cutoff'
     para_attention_type = 'loc'
     
     
