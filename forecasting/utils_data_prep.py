@@ -95,50 +95,7 @@ def instance_extraction_multiple_one_separate_target( list_target, list_indepen,
     return listX, listY_his, listY
 
 
-
-def y_normalization( ylist ):
-    tmpy = []
-    for i in ylist:
-        tmpy.append( math.log1p( i ) )
-    return tmpy
-        
-    
-#   to handle unbalance on Y distribution 
-def upsampling_onY( xlist, ylist ):
-    return 0
-
-
 # Utilities 
-
-# argu: np.matrix
-# return: np.matrix
-def normalize_y( y_mat, m, v ):
-    
-    tmpy = y_mat.reshape( (len(y_mat),) )
-    tmpy = list(tmpy)
-    
-    resy = []
-    
-    for i in tmpy:
-        resy.append( (i - m)*1.0/sqrt(v + 0.001) )
-    
-    return np.array(resy)        
-
-
-def expand_x_local( local_size, data):
-    
-    list_data = list(data)
-    cnt = len(list_data)
-    steps = len(list_data[0])
-    
-    tmp_dta = []
-    
-    for i in range(cnt):
-        tmp_dta.append([])
-        for j in range(local_size-1,steps):
-            tmp_dta[-1].append( list_data[i][j-local_size+1:j+1] )
-    
-    return np.array(tmp_dta)
 
 # expand y, y_t -> y_1,...y_t
 # in x, y is on the last column

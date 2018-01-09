@@ -58,7 +58,6 @@ def stationary_test( arr ):
 def ts_stationarize_diff( ts ):
     
     cur_ts = ts
-    
     p_val = sm.tsa.stattools.adfuller(cur_ts,\
                                       regression='c', \
                                       maxlag=None, store=False)[1]
@@ -105,10 +104,10 @@ def multi_ts_stationarize( dta ):
         
     return np.transpose(res_dta,[1, 0])
 
-def causality_VAR(post_ts):
+def causality_VAR(post_ts, max_order):
     
-    model =  VAR(xtr)
-    best_lag = model.select_order(60, verbose= False)
+    model =  VAR(post_ts)
+    best_lag = model.select_order(max_order, verbose= False)
     
     print 'best lag: ', best_lag
     

@@ -58,7 +58,7 @@ if __name__ == '__main__':
     print "Loading file at", file_dic[dataset_str][0] 
     files_list = file_dic[dataset_str]
     
-# --- load data and prepare data --- 
+# ---- load data and prepare data ---- 
 
     # !! including feature normalization    
     xtrain, ytrain, xtest, ytest, tr_shape, ts_shape = prepare_train_test_data(False, files_list)
@@ -78,7 +78,7 @@ if __name__ == '__main__':
 
     print np.shape(xtrain), np.shape(ytrain), np.shape(xtest), np.shape(ytest)
     
-# --- training log --- 
+# ---- training log ---- 
     log_file   = "res/rnn"
     model_file = "res/model/rnn"
     attention_file = "res/att"
@@ -86,7 +86,7 @@ if __name__ == '__main__':
     
     epoch_tr_ts_err = []
     
-# --- network set-up ---
+# ---- network set-up ----
     
     # fixed
     para_input_dim = np.shape(xtrain)[-1]
@@ -98,7 +98,7 @@ if __name__ == '__main__':
     
     # if residual layers are used, keep all dimensions the same 
     para_bool_residual = False
-    para_bool_attention = 'temp'
+    para_bool_attention = 'both'
     
     # -- plain --
     para_lstm_dims_plain = [96]
@@ -131,8 +131,6 @@ if __name__ == '__main__':
     # -- mv --
     para_lstm_dims_mv = [150]
     para_dense_dims_mv = [32, 16, 8]
-    # no att: 32, 8
-    # temp: 32
 
     para_lr_mv = 0.002
     # no att: 0.002
@@ -143,15 +141,17 @@ if __name__ == '__main__':
     para_l2_dense_mv = 0.001
     para_l2_att_mv = 0.00001
     # no att: 0.001
-    # temp loc:  setup 0.001, 0.00001, 161 
-    # temp-var: 
+    # temp loc : 0.001, 0.00001, 161 
+    # temp loc cutoff:  0.03, 0.00001, 161
+    # 
+    
     para_keep_prob_mv = 1.0
     
-    para_decay_type = 'cutoff'
+    para_decay_type = ''
     para_attention_type = 'loc'
     
     
-#--- build and train the model ---
+# ---- build and train the model ----
     
     # clear graph
     tf.reset_default_graph()
@@ -251,8 +251,7 @@ if __name__ == '__main__':
             tmp_train_acc = reg.inference(xtrain,ytrain, para_keep_prob)
 
             # monitor training indicators
-            print "At epoch %d: loss %f, train %s, test %s " % ( epoch, tmpc*1.0/total_iter, \
-                                                                  tmp_train_acc, tmp_test_acc ) 
+            print "At epoch %d: loss %f, train %s, test %s " % ( epoch, tmpc*1.0/total_iter, tmp_train_acc, tmp_test_acc ) 
             
             if method_str == 'mv':
                 print 'regular: ', reg.test_regularization(xtest, ytest,  para_keep_prob) 
