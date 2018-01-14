@@ -121,13 +121,10 @@ if __name__ == '__main__':
     para_keep_prob_mv = 1.0
     
     
-#--- retrieve the trained model ---    
-    
-    
-#--- build and train the model ---
+# --- build the graph ---
     
     # clear graph
-    tf.reset_default_graph()
+    #tf.reset_default_graph()
     
     with tf.Session() as sess:
         
@@ -183,6 +180,10 @@ if __name__ == '__main__':
         reg.train_ini()
         reg.inference_ini()
         '''
+        
+        
+        
+# --- retrieve the model with best validation errors
         
         total_cnt   = np.shape(xtrain)[0]
         total_iter = int(total_cnt/para_batch_size)

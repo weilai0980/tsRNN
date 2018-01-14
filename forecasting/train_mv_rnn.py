@@ -98,23 +98,26 @@ if __name__ == '__main__':
     
     # if residual layers are used, keep all dimensions the same 
     para_bool_residual = False
-    para_bool_attention = 'both'
+    para_bool_attention = ''
     
     # -- plain --
-    para_lstm_dims_plain = [96]
+    
+    para_lstm_dims_plain = [512]
     #[96, 96, 96]
     para_dense_dims_plain = [32, 16, 8]
     #[32, 32, 32]
 
     para_lr_plain = 0.002
     #0.002
-    para_batch_size_plain = 64
+    para_batch_size_plain = 128
     
-    para_l2_plain = 0.01
+    para_l2_plain = 0.0001
     #0.01
     para_keep_prob_plain = 1.0
 
+    
     # -- seperate --
+    
     para_lstm_dims_sep = [96]
     #[96, 96, 96]
     para_dense_dims_sep = [32, 16, 8]
@@ -128,8 +131,10 @@ if __name__ == '__main__':
     #0.02
     para_keep_prob_sep = 1.0
     
+    
     # -- mv --
-    para_lstm_dims_mv = [150]
+    
+    para_lstm_dims_mv = [500]
     para_dense_dims_mv = [32, 16, 8]
 
     para_lr_mv = 0.002
@@ -138,17 +143,24 @@ if __name__ == '__main__':
     # temp general 0.003
     para_batch_size_mv = 64
     
-    para_l2_dense_mv = 0.001
+    para_l2_dense_mv = 0.00001
     para_l2_att_mv = 0.00001
     # no att: 0.001
     # temp loc : 0.001, 0.00001, 161 
     # temp loc cutoff:  0.03, 0.00001, 161
-    # 
+    # temp loc vari sep_tar:
     
     para_keep_prob_mv = 1.0
     
-    para_decay_type = ''
-    para_attention_type = 'loc'
+    # attention types
+    para_temp_decay_type = ''
+    # cutoff
+    para_temp_attention_type = 'loc'
+    # loc, concate
+    para_vari_attention_type = 'sep_tar'
+    # concat, sum, 'all_var', sep_tar
+    para_pool_type = 'average'
+    # max, average, 
     
     
 # ---- build and train the model ----
@@ -157,8 +169,8 @@ if __name__ == '__main__':
     tf.reset_default_graph()
     
     # fix the random seed to stabilize the network 
-    np.random.seed(1)
-    tf.set_random_seed(1)
+    #np.random.seed(1)
+    #tf.set_random_seed(1)
     
     with tf.Session() as sess:
         
@@ -198,8 +210,8 @@ if __name__ == '__main__':
             reg = tsLSTM_mv(para_dense_dims_mv, para_lstm_dims_mv, \
                             para_win_size,   para_input_dim, sess, \
                             para_lr_mv, para_max_norm, para_batch_size_mv, para_bool_residual, \
-                            para_bool_attention, para_decay_type,  para_attention_type, para_l2_dense_mv,\
-                            para_l2_att_mv)
+                            para_bool_attention, para_temp_decay_type, para_temp_attention_type, para_l2_dense_mv,\
+                            para_l2_att_mv, para_vari_attention_type)
             
             
             log_file += "_mv.txt"
@@ -227,7 +239,7 @@ if __name__ == '__main__':
         total_idx = range(total_cnt)
         
         # test
-        #print '? ? ? :', reg.testfunc(xtrain, ytrain, para_keep_prob)
+        #print '? ? ? :', reg.testfunc(xtest, ytest, para_keep_prob)
         
         # set up model saver
         saver = tf.train.Saver(max_to_keep = para_n_epoch)
@@ -235,9 +247,10 @@ if __name__ == '__main__':
         # training epoches 
         for epoch in range(para_n_epoch):
             
-            tmpc = 0.0
-            np.random.shuffle(total_idx)
+            loss_epoch = 0.0
+            err_sum_epoch = 0.0
             
+            np.random.shuffle(total_idx)
             for i in range(total_iter):
                 
                 # shuffle training data
@@ -245,36 +258,46 @@ if __name__ == '__main__':
                 batch_x = xtrain[ batch_idx ]
                 batch_y = ytrain[ batch_idx ]            
                 
-                tmpc += reg.train_batch(batch_x, batch_y, para_keep_prob)
-        
-            tmp_test_acc  = reg.inference(xtest, ytest,  para_keep_prob) 
-            tmp_train_acc = reg.inference(xtrain,ytrain, para_keep_prob)
+                tmp_loss, tmp_err= reg.train_batch(batch_x, batch_y, para_keep_prob)
+                
+                loss_epoch += tmp_loss
+                err_sum_epoch += tmp_err
+                
+            # ?
+            test_error_epoch  = reg.inference(xtest, ytest,  para_keep_prob)
+            train_error_epoch = sqrt(1.0*err_sum_epoch/total_cnt)
 
             # monitor training indicators
-            print "At epoch %d: loss %f, train %s, test %s " % ( epoch, tmpc*1.0/total_iter, tmp_train_acc, tmp_test_acc ) 
+            print "At epoch %d: loss %f, train %s, test %s " % ( epoch, loss_epoch*1.0/total_iter,\
+                                                                 train_error_epoch, test_error_epoch ) 
             
-            if method_str == 'mv':
-                print 'regular: ', reg.test_regularization(xtest, ytest,  para_keep_prob) 
+            #if method_str == 'mv':
+            #    print 'regular: ', reg.test_regularization(xtest, ytest,  para_keep_prob) 
 
             print '\n'
             
+            
+            # ---- logs of epoch performance    
+            
             # write attention weights to txt files
-            if para_bool_attention == 'both' or para_bool_attention == 'temp' :
+            if para_bool_attention != '' :
                 with open(attention_file, "a") as text_file:
                     text_file.write("-- At epoch %d: %s \n" % (epoch, \
                                                            str(reg.test_attention(xtest[:1], ytest[:1], para_keep_prob)))) 
             
             # write training and testing errors to txt files
             with open(log_file, "a") as text_file:
-                text_file.write("At epoch %d: loss %f, train %f, test %f\n" % ( epoch, tmpc*1.0/total_iter, \
-                                                                                   tmp_train_acc[0], tmp_test_acc[0] ))
+                text_file.write("At epoch %d: loss %f, train %f, test %f\n" % (epoch, loss_epoch*1.0/total_iter, \
+                                                                               train_error_epoch, test_error_epoch[0]))
             
             
             # save epoch errors and the model
-            epoch_tr_ts_err.append([epoch, tmp_train_acc[0], tmp_test_acc[0]])
+            epoch_tr_ts_err.append([epoch, sqrt(1.0*err_sum_epoch/total_cnt), test_error_epoch[0]])
             with open(PIK, "wb") as f:
                 pickle.dump(epoch_tr_ts_err, f)
                 
             save_path = saver.save(sess, model_file + "_" + str(epoch) + ".ckpt")
+            
+            # ---
         
         print "Optimization Finished!"

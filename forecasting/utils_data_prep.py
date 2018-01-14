@@ -182,7 +182,7 @@ def conti_normalization_test_dta(dta_df, train_df):
         
     return df.as_matrix()
 
-
+# normalize features
 def prepare_train_test_data(bool_add_trend, files_list):
     
     PARA_ADD_TREND = bool_add_trend
@@ -298,7 +298,6 @@ def build_training_testing_data_4learning( dta_df, target_col, indep_col, \
 def build_training_testing_data_4statistics( dta_df, target_col, indep_col, \
                                 para_uni_variate, \
                                 para_train_range, para_test_range):
-        
 # univariate
     if para_uni_variate == True:
         
@@ -306,12 +305,8 @@ def build_training_testing_data_4statistics( dta_df, target_col, indep_col, \
         
         x_test  = dta_df[target_col][ para_test_range[0]:para_test_range[1] ].as_matrix()
 
-
 # multiple independent and one target series
     else:
-        
-        #tmpcol = indep_col
-        #tmpcol.append(target_col)
         
         x_train = dta_df[ indep_col+[target_col] ][ para_train_range[0]:para_train_range[1] ].as_matrix()
         
@@ -324,8 +319,7 @@ def build_training_testing_data_4statistics( dta_df, target_col, indep_col, \
 # ---- RETAIN baseline in NIPS paper ----   
 def prepare_train_test_RETAIN(files_list, dump_path, dump_prefix):
     
-    # --- load data and prepare data --- 
-    
+    # normalize features
     xtrain, ytrain, xtest, ytest, tr_shape, ts_shape = prepare_train_test_data(False, files_list)
     #print np.shape(xtrain), np.shape(ytrain), np.shape(xtest), np.shape(ytest)
     
@@ -353,7 +347,7 @@ def prepare_train_test_RETAIN(files_list, dump_path, dump_prefix):
     
     
 # ---- Dual-RNN baseline in IJCAI paper ---- 
-def prepare_train_test_DualRNN(data_df, target_col, feature_cols, train_range, test_range, dump_path, dump_prefix,\
+def prepare_train_test_DualRNN(dta_df, target_col, feature_cols, train_range, test_range, dump_path, dump_prefix,\
                               win_size, bool_stateful):
     
     dta_mat = dta_df[ feature_cols ][ train_range[0]:train_range[1] ].as_matrix()
@@ -368,7 +362,7 @@ def prepare_train_test_DualRNN(data_df, target_col, feature_cols, train_range, t
                         list(dta_df[ target_col ][ test_range[0]:test_range[1] ]),\
                                                  list(dta_mat), win_size, bool_stateful )
 
-    # normalization
+    # -- normalization
     # X
     cnt_tr = len(x_train)
     cnt_ts = len(x_test)

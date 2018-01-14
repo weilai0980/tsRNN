@@ -29,6 +29,7 @@ mv_rnn final speed-up
 
 soft and hart cutoff, impulse function approximate, 
 
+top% accuracy in causal discovery 
 
 model saver, training and testing data, attentions 
 

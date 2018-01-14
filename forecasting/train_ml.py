@@ -23,8 +23,8 @@ from sklearn import preprocessing
 
 import xgboost as xgb
 
-#from utils_keras import *
-from utils_dataPrepro import *
+# local packages 
+from utils_data_prep import *
 from ml_models import *
 
 import sys
@@ -33,35 +33,38 @@ import sys
 dataset_str = str(sys.argv[1])
 print "Load dataset %s"%dataset_str
 
+# ---- DATA ----
+file_dic = {}
+    
+file_addr = ["../../dataset/dataset_ts/air_xtrain.dat", \
+                 "../../dataset/dataset_ts/air_xtest.dat",\
+                 "../../dataset/dataset_ts/air_ytrain.dat", \
+                 "../../dataset/dataset_ts/air_ytest.dat"]
+file_dic.update( {"air": file_addr} )
+    
+file_addr = ["../../dataset/dataset_ts/energy_xtrain.dat", \
+                 "../../dataset/dataset_ts/energy_xtest.dat",\
+                 "../../dataset/dataset_ts/energy_ytrain.dat", \
+                 "../../dataset/dataset_ts/energy_ytest.dat"]
+file_dic.update( {"energy": file_addr} )
+    
+file_addr = ["../../dataset/dataset_ts/pm25_xtrain.dat", \
+                 "../../dataset/dataset_ts/pm25_xtest.dat",\
+                 "../../dataset/dataset_ts/pm25_ytrain.dat", \
+                 "../../dataset/dataset_ts/pm25_ytest.dat"]
+file_dic.update( {"pm25": file_addr} )
 
-file_dic = { "stock":0,\
-             "power":1,\
-             "air":2,\
-           }
-
-files_list=[]
-files_list.append( ["../../dataset/dataset_ts/stock_xtrain.dat", \
-            "../../dataset/dataset_ts/stock_xtest.dat",\
-            "../../dataset/dataset_ts/stock_ytrain.dat", \
-            "../../dataset/dataset_ts/stock_ytest.dat"] )
-files_list.append( ["../../dataset/dataset_ts/power_xtrain.dat", \
-            "../../dataset/dataset_ts/power_xtest.dat",\
-            "../../dataset/dataset_ts/power_ytrain.dat", \
-            "../../dataset/dataset_ts/power_ytest.dat"] )
-files_list.append( ["../../dataset/dataset_ts/air_xtrain.dat", \
-            "../../dataset/dataset_ts/air_xtest.dat",\
-            "../../dataset/dataset_ts/air_ytrain.dat", \
-            "../../dataset/dataset_ts/air_ytest.dat"] )
-
-
+# ---- normalization ----
 xtrain, ytrain, xtest, ytest, _, _ = \
-prepare_train_test_data( False, files_list[ file_dic[dataset_str] ])
+prepare_train_test_data( False, file_dic[dataset_str] )
 
 print np.shape(xtrain), np.shape(ytrain), np.shape(xtest), np.shape(ytest)
 
 
-with open("res/tsML.txt", "w") as text_file:
-    text_file.close()
+# ---- begin to train models ----
+
+#with open("res/tsML.txt", "w") as text_file:
+#    text_file.close()
 
 
 # GBT performance
