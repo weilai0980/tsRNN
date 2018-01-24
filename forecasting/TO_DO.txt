@@ -27,6 +27,10 @@ mv_rnn final speed-up
 
 --- To do ---
 
+Baseline: (NIPS 2016)temporal regularized time series, prophet 
+
+normalization the whole or each batch
+
 soft and hart cutoff, impulse function approximate, 
 
 top% accuracy in causal discovery 

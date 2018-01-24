@@ -54,6 +54,12 @@ if __name__ == '__main__':
                  "../../dataset/dataset_ts/pm25_ytrain.dat", \
                  "../../dataset/dataset_ts/pm25_ytest.dat"]
     file_dic.update( {"pm25": file_addr} )
+    
+    file_addr = ["../../dataset/dataset_ts/plant_xtrain.dat", \
+                 "../../dataset/dataset_ts/plant_xtest.dat",\
+                 "../../dataset/dataset_ts/plant_ytrain.dat", \
+                 "../../dataset/dataset_ts/plant_ytest.dat"]
+    file_dic.update( {"plant": file_addr} )
      
     print "Loading file at", file_dic[dataset_str][0] 
     files_list = file_dic[dataset_str]
@@ -82,6 +88,7 @@ if __name__ == '__main__':
     log_file   = "res/rnn"
     model_file = "res/model/rnn"
     attention_file = "res/att"
+    pre_file = "res/pred/pred_"
     PIK = "epoch_err_"
     
     epoch_tr_ts_err = []
@@ -99,17 +106,16 @@ if __name__ == '__main__':
     # if residual layers are used, keep all dimensions the same 
     para_bool_residual = False
     para_bool_attention = ''
+    # temp, var, var-pre, both-att, both-pool
     
     # -- plain --
     
-    para_lstm_dims_plain = [512]
-    #[96, 96, 96]
+    para_lstm_dims_plain = [64]
     para_dense_dims_plain = [32, 16, 8]
-    #[32, 32, 32]
 
-    para_lr_plain = 0.002
+    para_lr_plain = 0.001
     #0.002
-    para_batch_size_plain = 128
+    para_batch_size_plain = 64
     
     para_l2_plain = 0.0001
     #0.01
@@ -134,22 +140,22 @@ if __name__ == '__main__':
     
     # -- mv --
     
-    para_lstm_dims_mv = [500]
-    para_dense_dims_mv = [32, 16, 8]
+    para_lstm_dims_mv = [70]
+    para_dense_dims_mv = [32, 16]
+    #[32, 16, 8]
 
-    para_lr_mv = 0.002
+    para_lr_mv = 0.001
     # no att: 0.002
     # temp: 0.002
     # temp general 0.003
     para_batch_size_mv = 64
     
-    para_l2_dense_mv = 0.00001
-    para_l2_att_mv = 0.00001
+    para_l2_dense_mv = 0.1
+    para_l2_att_mv = 0.001
     # no att: 0.001
     # temp loc : 0.001, 0.00001, 161 
     # temp loc cutoff:  0.03, 0.00001, 161
     # temp loc vari sep_tar:
-    
     para_keep_prob_mv = 1.0
     
     # attention types
@@ -157,9 +163,9 @@ if __name__ == '__main__':
     # cutoff
     para_temp_attention_type = 'loc'
     # loc, concate
-    para_vari_attention_type = 'sep_tar'
+    para_vari_attention_type = 'logit'
     # concat, sum, 'all_var', sep_tar
-    para_pool_type = 'average'
+    para_pool_type = 'max'
     # max, average, 
     
     
@@ -234,7 +240,7 @@ if __name__ == '__main__':
         reg.inference_ini()
         
         # perpare for data shuffling
-        total_cnt   = np.shape(xtrain)[0]
+        total_cnt  = np.shape(xtrain)[0]
         total_iter = int(total_cnt/para_batch_size)
         total_idx = range(total_cnt)
         
@@ -258,18 +264,18 @@ if __name__ == '__main__':
                 batch_x = xtrain[ batch_idx ]
                 batch_y = ytrain[ batch_idx ]            
                 
-                tmp_loss, tmp_err= reg.train_batch(batch_x, batch_y, para_keep_prob)
+                tmp_loss, tmp_err = reg.train_batch(batch_x, batch_y, para_keep_prob)
                 
                 loss_epoch += tmp_loss
                 err_sum_epoch += tmp_err
                 
-            # ?
-            test_error_epoch  = reg.inference(xtest, ytest,  para_keep_prob)
-            train_error_epoch = sqrt(1.0*err_sum_epoch/total_cnt)
+            # [self.y_hat, self.rmse, self.mae, self.mape]
+            yh_test, test_rmse_epoch, test_mae_epoch, test_mape_epoch = reg.inference(xtest, ytest, para_keep_prob)
+            train_rmse_epoch = sqrt(1.0*err_sum_epoch/total_cnt)
 
             # monitor training indicators
             print "At epoch %d: loss %f, train %s, test %s " % ( epoch, loss_epoch*1.0/total_iter,\
-                                                                 train_error_epoch, test_error_epoch ) 
+                                                                 train_rmse_epoch, test_rmse_epoch ) 
             
             #if method_str == 'mv':
             #    print 'regular: ', reg.test_regularization(xtest, ytest,  para_keep_prob) 
@@ -288,7 +294,8 @@ if __name__ == '__main__':
             # write training and testing errors to txt files
             with open(log_file, "a") as text_file:
                 text_file.write("At epoch %d: loss %f, train %f, test %f\n" % (epoch, loss_epoch*1.0/total_iter, \
-                                                                               train_error_epoch, test_error_epoch[0]))
+                                                                               train_rmse_epoch, test_rmse_epoch,\
+                                                                               test_mae_epoch, test_mape_epoch) )
             
             
             # save epoch errors and the model
@@ -298,6 +305,27 @@ if __name__ == '__main__':
                 
             save_path = saver.save(sess, model_file + "_" + str(epoch) + ".ckpt")
             
+            
+            # save testing true and prediction values
+            y_yh = np.concatenate( [ytest, yh_test], 1 )
+            y_yh.dump(pre_file + str(epoch) + ".dat")
+            
+            '''
+            with open( pre_file + str(epoch) + ".txt", "w" ) as text_file:
+                text_file.close()
+            
+            with open( pre_file + str(epoch) + ".txt", "w" ) as text_file:
+                text_file.write( "%s\n" %( str(list(zip(np.squeeze(ytest), np.squeeze(yh_test)))) ) )
+            '''
+            
             # ---
         
         print "Optimization Finished!"
+        
+        
+        
+        
+        
+        
+        
+        

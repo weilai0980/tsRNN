@@ -129,7 +129,7 @@ def causality_pairwise(VAR_res, post_ts):
                 tmp_res = VAR_res.test_causality(i, [j], kind='wald', \
                                                 verbose=False)
                 
-                if tmp_res['pvalue']< 0.01:
+                if tmp_res['pvalue']< 0.05:
                     causing[-1].append(j)
     
     return causing
