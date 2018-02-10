@@ -302,7 +302,7 @@ class tsLSTM_plain():
         # error metric
         self.rmse = tf.sqrt( tf.reduce_mean(tf.square(self.y - self.py)) )
         self.mae =  tf.reduce_mean( tf.abs(self.y - self.py) )
-        self.mape = tf.reduce_mean( tf.abs((self.y - self.py)*1.0/self.y) )
+        self.mape = tf.reduce_mean( tf.abs((self.y - self.py)*1.0/(self.y+1e-5)) )
         
         
 #   infer givn testing data    
@@ -314,7 +314,7 @@ class tsLSTM_plain():
         return self.sess.run([self.py], feed_dict = {self.x:x_test, self.y:y_test, self.keep_prob:keep_prob})
     
     def test_attention(self, x_test, y_test, keep_prob):
-        return self.sess.run([self.att],  feed_dict = {self.x:x_test, self.y:y_test, self.keep_prob:keep_prob})
+        return self.sess.run( self.att,  feed_dict = {self.x:x_test, self.y:y_test, self.keep_prob:keep_prob})
     
     
     
@@ -520,7 +520,7 @@ def mv_attention_variate( h_temp, var_dim, scope, num_vari, att_type ):
     with tf.variable_scope(scope):
         
         # softmax
-        if att_type == 'logit':
+        if att_type == 'softmax':
             
             # [V B D]
             w_var = tf.get_variable('w_var', [var_dim, 1], initializer=tf.contrib.layers.xavier_initializer())
@@ -546,7 +546,21 @@ def mv_attention_variate( h_temp, var_dim, scope, num_vari, att_type ):
             
             # [B 2D]
             h_res = tf.concat([h_indep_weighted, h_tar_squeeze], 1)
-        
+            
+        elif att_type == 'softmax-all':
+            
+            # [V B D]
+            w_var = tf.get_variable('w_var', [var_dim, 1], initializer=tf.contrib.layers.xavier_initializer())
+            b_var = tf.Variable( tf.random_normal([1]) )
+            
+            #? bias nonlinear activation ?
+            # [V B 1] = [V B D]*[D 1]
+            logits = tf.transpose( tf.tensordot(h_temp, w_var, axes=1) + b_var, [1, 0, 2] )
+            # [B V 1]
+            var_weight = tf.nn.softmax( logits , dim = 1 )
+            
+            # for place holder
+            h_res = h_temp
         
         elif att_type == 'sigmoid':
             
@@ -571,6 +585,50 @@ def mv_attention_variate( h_temp, var_dim, scope, num_vari, att_type ):
             h_var_list = tf.split(h_weighted, num_or_size_splits = num_vari, axis = 0) 
             # [B 2H]
             h_res = tf.squeeze(tf.concat(h_var_list, 2)) 
+            
+            var_weight = tf.transpose(var_weight, [1,0,2])
+            
+        elif att_type == 'mlp':
+            
+            interm_dim =  var_dim/2
+            
+            # [D d]
+            w_dense = tf.get_variable('w_dense', [ var_dim, interm_dim ],\
+                                     initializer=tf.contrib.layers.xavier_initializer())
+            b_dense = tf.Variable( tf.zeros([ interm_dim, ]) )
+            
+            
+            # [V-1 B D], [1 B D]
+            h_indep, h_tar = tf.split(h_temp, num_or_size_splits = [num_vari - 1, 1], axis = 0)
+            
+            # ? non-linear activation
+            # [V-1 B d]
+            h_interm_indep = tf.nn.relu( tf.tensordot(h_indep, w_dense, axes=1) + b_dense )
+            # [1 B d]
+            h_interm_tar = tf.nn.relu( tf.tensordot(h_tar, w_dense, axes=1) + b_dense )
+            # [V-1 B d]
+            h_interm = h_interm_indep + h_interm_tar
+            
+            
+            w_var = tf.get_variable('w_var', [interm_dim, 1], initializer=tf.contrib.layers.xavier_initializer())
+            b_var = tf.Variable( tf.random_normal([1]) )
+            
+            # [V-1 B d] * [d 1]  [B V-1 1]
+            logits = tf.transpose( tf.tensordot(h_interm, w_var, axes=1) + b_var, [1, 0, 2] )
+            # [B V-1 1]
+            var_weight = tf.nn.softmax( logits , dim = 1 )
+            
+            # [B V-1 D]
+            h_indep_trans = tf.transpose(h_indep, [1, 0, 2])
+            # sum-up, [B D]
+            h_indep_weighted = tf.reduce_sum( h_indep_trans*var_weight, 1 )
+            
+            # [B D]
+            h_tar_squeeze = tf.squeeze( h_tar, [0] )
+            
+            # [B 2D]
+            h_res = tf.concat([h_indep_weighted, h_tar_squeeze], 1)
+            
          
         else:
             print '[ERROR] variable attention type'
@@ -894,7 +952,7 @@ def mv_attention_temp_weight_decay( h_list, h_dim, scope, step, step_idx, decay_
 #tf.squeeze(tf.concat(h_var_list, 2), [0])
     
 
-def mv_dense( h_vari, dim_vari, scope, num_vari, dim_to ):
+def mv_dense( h_vari, dim_vari, scope, num_vari, dim_to, bool_output ):
     
     # argu [V B D]
     
@@ -910,10 +968,14 @@ def mv_dense( h_vari, dim_vari, scope, num_vari, dim_to ):
         
         # [V B D 1] * [V 1 D d] -> [V B d]
         # ?
-        h = tf.nn.relu( tf.reduce_sum(h_expand * w + b, 2) ) 
+        if bool_output == True:
+            h = tf.reduce_sum(h_expand * w + b, 2)
+        else:
+            h = tf.nn.relu( tf.reduce_sum(h_expand * w + b, 2) ) 
     
     return h, tf.nn.l2_loss(w)    
-    
+
+'''
 def mv_variate_mixture( h_last, h_dim, scope, num_vari, pred ):
     
     # h_last [V B D]  pred [B V]
@@ -938,6 +1000,7 @@ def mv_variate_mixture( h_last, h_dim, scope, num_vari, pred ):
         pre_indep_weighted = tf.reduce_sum( pre_indep*var_weight, 1, True )
             
     return pre_indep_weighted + pre_tar, tf.nn.l2_loss(w_var) 
+'''
 
 # ---- multi-variate RNN ----
 
@@ -993,7 +1056,7 @@ class tsLSTM_mv():
                 h = h_last
                
                 # ------------
-                
+                '''
                 h_last_vari = tf.split( h_last, num_or_size_splits = self.N_DATA_DIM, axis = 1)
                 
                 # ? intermediate mv-dense ?
@@ -1012,17 +1075,17 @@ class tsLSTM_mv():
                 h = tf.squeeze(tf.concat(h_var_list, 2), [0])
                 
                 #n_dense_dim_layers[-1] = n_lstm_dim_layers[-1]/2
-                
+                '''
                 # ------------
                 
                 # test
                 #self.test = tf.shape(h)
                 
                 # ?
-                #h, regu_dense = plain_dense( h, n_lstm_dim_layers[-1], n_dense_dim_layers, 'dense', self.keep_prob )
-                #regu_all = l2_dense*regu_dense
+                h, regu_dense = plain_dense( h, n_lstm_dim_layers[-1], n_dense_dim_layers, 'dense', self.keep_prob )
+                regu_all = l2_dense*regu_dense
                 
-                regu_all = l2_dense*(regu_mv_dense)
+                #regu_all = l2_dense*(regu_mv_dense)
                 
             
             elif bool_att == 'temp':
@@ -1087,21 +1150,22 @@ class tsLSTM_mv():
                 # [B D*V]
                 h_last = h_temp[-1]
                 # [V B D]
-                h_list = tf.split(h_last, [int(n_lstm_dim_layers[0]/self.N_DATA_DIM)]*self.N_DATA_DIM, 1)
+                h_last_vari = tf.split(h_last, [int(n_lstm_dim_layers[0]/self.N_DATA_DIM)]*self.N_DATA_DIM, 1)
+                
                 
                 # --- apply variate attention 
                 
                 # ? shape h_att [B 2H] or [B 2D]
-                h_att, regu_att_vari, self.att = mv_attention_variate(h_list,\
-                                                                           int(n_lstm_dim_layers[0]/self.N_DATA_DIM),\
-                                                                           'att_vari', self.N_DATA_DIM, vari_attention)
-                
+                h_att, regu_att_vari, self.att = mv_attention_variate(h_last_vari,\
+                                                                      int(n_lstm_dim_layers[0]/self.N_DATA_DIM),\
+                                                                      'att_vari', self.N_DATA_DIM, vari_attention)
+                self.test = tf.shape(self.att)
                 # ---
                 
-                if vari_attention in [  'sigmoid' ]:
+                if vari_attention in [ 'sigmoid' ]:
                     h, regu_dense = plain_dense( h_att, n_lstm_dim_layers[-1], n_dense_dim_layers, 'dense', self.keep_prob )
                 
-                elif vari_attention == 'logit':
+                elif vari_attention in ['softmax', 'mlp']:
                     h, regu_dense = plain_dense( h_att, n_lstm_dim_layers[-1]/self.N_DATA_DIM*2, n_dense_dim_layers, 'dense',\
                                                 self.keep_prob )
                 else:
@@ -1113,7 +1177,7 @@ class tsLSTM_mv():
             
             elif bool_att == 'vari-mv':
                 
-                print ' --- MV-RNN using only variate attention on prediction mixture: '
+                print ' --- MV-RNN using only variate attention with mv-dense: '
                 
                 with tf.variable_scope('lstm'):
                     lstm_cell = MvLSTMCell( n_lstm_dim_layers[0], n_var = n_data_dim ,\
@@ -1147,7 +1211,7 @@ class tsLSTM_mv():
                 if vari_attention in [  'sigmoid' ]:
                     n_dense_dim_layers[-1] = interm_var_dim*self.N_DATA_DIM
                 
-                elif vari_attention == 'logit':
+                elif vari_attention == 'softmax':
                     n_dense_dim_layers[-1] = interm_var_dim*2
                     
                 else:
@@ -1157,6 +1221,75 @@ class tsLSTM_mv():
                 # ?
                 regu_all = l2_dense*regu_mv_dense + l2_att*regu_att_vari
                 
+            
+            elif bool_att == 'vari-mv-output':
+                
+                print ' --- MV-RNN using only variate attention with mv-dense: '
+                
+                with tf.variable_scope('lstm'):
+                    lstm_cell = MvLSTMCell( n_lstm_dim_layers[0], n_var = n_data_dim ,\
+                                           initializer = tf.contrib.layers.xavier_initializer() )
+                    h, state = tf.nn.dynamic_rnn(cell = lstm_cell, inputs = self.x, dtype = tf.float32)
+                
+                # [B T D*V]
+                h_temp = tf.transpose(h, [1, 0, 2])
+                # [B D*V]
+                h_last = h_temp[-1]
+                
+                # [V B D]
+                h_last_vari = tf.split(h_last, [int(n_lstm_dim_layers[0]/self.N_DATA_DIM)]*self.N_DATA_DIM, 1)
+                
+                # --- intermediate mv-dense
+                # [V B D] - [V B d]
+                
+                interm_var_dim = int(n_lstm_dim_layers[-1]/self.N_DATA_DIM)*2
+                
+                # h_mv [V B d]
+                h_mv1, regu_mv_dense1 = mv_dense( h_last_vari, int(n_lstm_dim_layers[-1]/self.N_DATA_DIM), 'intermediate1',\
+                                                self.N_DATA_DIM, interm_var_dim, False )
+                
+                
+                h_mv, regu_mv_dense = mv_dense( h_mv1, interm_var_dim, 'intermediate',\
+                                                self.N_DATA_DIM, 1, True )
+                
+                
+                # --- derive variate attention 
+                
+                h_att, regu_att_vari, self.att = mv_attention_variate(h_last_vari,\
+                                                                      int(n_lstm_dim_layers[0]/self.N_DATA_DIM),\
+                                                                      'att_vari', self.N_DATA_DIM, vari_attention)
+                self.test = tf.shape(self.att)
+                
+                # ? shape self.att [B V-1 1]
+                #self.att, regu_att_vari = mv_attention_variate( h_last_vari, int(n_lstm_dim_layers[-1]/self.N_DATA_DIM),\
+                #                                               'att_vari', self.N_DATA_DIM, vari_attention )
+                
+                
+                # --- partial attention
+                '''
+                # [V-1 B d], [1 B d]
+                h_mv_indep, h_mv_tar = tf.split(h_mv, [self.N_DATA_DIM-1, 1], 0)
+                # [B V-1 d]
+                h_mv_indep_trans = tf.transpose(h_mv_indep, [1, 0, 2])
+                # [B, 1]
+                h_mv_indep_weighted = tf.reduce_sum( h_mv_indep_trans*self.att, 1 )
+                
+                self.py = h_mv_indep_weighted + tf.squeeze(h_mv_tar, [0])
+                '''
+                # --- full attention 
+                # [V B d] - [B V d]
+                h_mv_trans = tf.transpose(h_mv, [1, 0, 2])
+                # [B V d]*[B V 1]
+                h_mv_weighted = tf.reduce_sum( h_mv_trans*self.att, 1 )
+                
+                self.py = h_mv_weighted
+                
+                
+                # --- regularization
+                regu_all = l2_dense*regu_mv_dense + l2_dense*regu_mv_dense1 + l2_att*regu_att_vari
+                self.regularization = regu_all
+                
+                return 
             
             
             elif bool_att == 'both-att':
@@ -1247,10 +1380,10 @@ class tsLSTM_mv():
             
             w = tf.get_variable('w', shape=[n_dense_dim_layers[-1], 1],\
                                      initializer=tf.contrib.layers.xavier_initializer())
-            
             b = tf.Variable(tf.zeros([1]))
-            self.py = tf.matmul(h, w) + b
             
+            
+            self.py = tf.matmul(h, w) + b
             self.regularization = regu_all + l2_dense*tf.nn.l2_loss(w)
         
         # regularization in LSTM 
@@ -1289,7 +1422,7 @@ class tsLSTM_mv():
         # error metric
         self.rmse = tf.sqrt( tf.reduce_mean(tf.square(self.y - self.py)) )
         self.mae =  tf.reduce_mean( tf.abs(self.y - self.py) )
-        self.mape = tf.reduce_mean( tf.abs( (self.y - self.py)*1.0/self.y) )
+        self.mape = tf.reduce_mean( tf.abs( (self.y - self.py)*1.0/(self.y+1e-5) ) )
         
         
 #   infer givn testing data    

@@ -348,7 +348,7 @@ def prepare_train_test_RETAIN(files_list, dump_path, dump_prefix):
     
 # ---- Dual-RNN baseline in IJCAI paper ---- 
 def prepare_train_test_DualRNN(dta_df, target_col, feature_cols, train_range, test_range, dump_path, dump_prefix,\
-                              win_size, bool_stateful):
+                              win_size, bool_stateful, bool_log_y):
     
     dta_mat = dta_df[ feature_cols ][ train_range[0]:train_range[1] ].as_matrix()
 
@@ -387,8 +387,13 @@ def prepare_train_test_DualRNN(dta_df, target_col, feature_cols, train_range, te
     yhtrain= conti_normalization_train_dta( yhtrain_df )
 
     # ---
-    ytrain = np.asarray(y_train)
-    ytest = np.asarray(y_test)
+    if bool_log_y == True:
+        ytrain = log(np.asarray(y_train)+1e-5)
+        ytest  = log(np.asarray(y_test)+1e-5)
+        
+    else:
+        ytrain = np.asarray(y_train)
+        ytest = np.asarray(y_test)
 
     print np.shape(xtrain), np.shape(yhtrain), np.shape(ytrain)
     print np.shape(xtest), np.shape(yhtest), np.shape(ytest)

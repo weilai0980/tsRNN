@@ -27,6 +27,16 @@ mv_rnn final speed-up
 
 --- To do ---
 
+
+bayesian rnn + attention
+
+
+REINFORCE
+
+memory cell
+
+Sequencial loss function 
+
 Baseline: (NIPS 2016)temporal regularized time series, prophet 
 
 normalization the whole or each batch

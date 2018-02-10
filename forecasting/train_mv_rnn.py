@@ -28,146 +28,149 @@ from utils_libs import *
 # regularization on attention
 # regularization on lstm
 
-# ---- training process ----
-
-if __name__ == '__main__':
+# ---- Load data ----
     
-    dataset_str = str(sys.argv[1])
-    method_str = str(sys.argv[2])
+dataset_str = str(sys.argv[1])
+method_str = str(sys.argv[2])
     
-    file_dic = {}
+file_dic = {}
     
-    file_addr = ["../../dataset/dataset_ts/air_xtrain.dat", \
+file_addr = ["../../dataset/dataset_ts/air_xtrain.dat", \
                  "../../dataset/dataset_ts/air_xtest.dat",\
                  "../../dataset/dataset_ts/air_ytrain.dat", \
                  "../../dataset/dataset_ts/air_ytest.dat"]
-    file_dic.update( {"air": file_addr} )
+file_dic.update( {"air": file_addr} )
     
-    file_addr = ["../../dataset/dataset_ts/energy_xtrain.dat", \
+file_addr = ["../../dataset/dataset_ts/energy_xtrain.dat", \
                  "../../dataset/dataset_ts/energy_xtest.dat",\
                  "../../dataset/dataset_ts/energy_ytrain.dat", \
                  "../../dataset/dataset_ts/energy_ytest.dat"]
-    file_dic.update( {"energy": file_addr} )
+file_dic.update( {"energy": file_addr} )
     
-    file_addr = ["../../dataset/dataset_ts/pm25_xtrain.dat", \
+file_addr = ["../../dataset/dataset_ts/pm25_xtrain.dat", \
                  "../../dataset/dataset_ts/pm25_xtest.dat",\
                  "../../dataset/dataset_ts/pm25_ytrain.dat", \
                  "../../dataset/dataset_ts/pm25_ytest.dat"]
-    file_dic.update( {"pm25": file_addr} )
+file_dic.update( {"pm25": file_addr} )
     
-    file_addr = ["../../dataset/dataset_ts/plant_xtrain.dat", \
+file_addr = ["../../dataset/dataset_ts/plant_xtrain.dat", \
                  "../../dataset/dataset_ts/plant_xtest.dat",\
                  "../../dataset/dataset_ts/plant_ytrain.dat", \
                  "../../dataset/dataset_ts/plant_ytest.dat"]
-    file_dic.update( {"plant": file_addr} )
+file_dic.update( {"plant": file_addr} )
      
-    print "Loading file at", file_dic[dataset_str][0] 
-    files_list = file_dic[dataset_str]
+print "Loading file at", file_dic[dataset_str][0] 
+files_list = file_dic[dataset_str]
     
-# ---- load data and prepare data ---- 
+    
+# ---- format and reshape data ---- 
 
-    # !! including feature normalization    
-    xtrain, ytrain, xtest, ytest, tr_shape, ts_shape = prepare_train_test_data(False, files_list)
-    print np.shape(xtrain), np.shape(ytrain), np.shape(xtest), np.shape(ytest)
+# !! including feature normalization    
+xtrain, ytrain, xtest, ytest, tr_shape, ts_shape = prepare_train_test_data(False, files_list)
+print np.shape(xtrain), np.shape(ytrain), np.shape(xtest), np.shape(ytest)
     
-    # automatically format the dimensions for univairate or multi-variate cases 
-    # always in formt [#, time_steps, data dimension]
-    if len(tr_shape)==2:
-        xtrain = np.expand_dims( xtrain, 2 )
-        xtest  = np.expand_dims( xtest,  2 )
-    elif len(tr_shape)==3:
-        xtrain = np.reshape( xtrain, tr_shape )
-        xtest  = np.reshape( xtest,  ts_shape )
+# automatically format the dimensions for univairate or multi-variate cases 
+# always in formt [#, time_steps, data dimension]
+if len(tr_shape)==2:
+    xtrain = np.expand_dims( xtrain, 2 )
+    xtest  = np.expand_dims( xtest,  2 )
+elif len(tr_shape)==3:
+    xtrain = np.reshape( xtrain, tr_shape )
+    xtest  = np.reshape( xtest,  ts_shape )
 
-    ytrain = np.expand_dims( ytrain, 1 ) 
-    ytest  = np.expand_dims( ytest,  1 )
+ytrain = np.expand_dims( ytrain, 1 ) 
+ytest  = np.expand_dims( ytest,  1 )
 
-    print np.shape(xtrain), np.shape(ytrain), np.shape(xtest), np.shape(ytest)
+print np.shape(xtrain), np.shape(ytrain), np.shape(xtest), np.shape(ytest)
     
-# ---- training log ---- 
-    log_file   = "res/rnn"
-    model_file = "res/model/rnn"
-    attention_file = "res/att"
-    pre_file = "res/pred/pred_"
-    PIK = "epoch_err_"
+
+# ---- training log set-up ---- 
+log_file   = "res/rnn"
+model_file = "res/model/rnn"
+attention_file = "res/att"
+pre_file = "res/pred/pred_"
+PIK = "epoch_err_"
     
-    epoch_tr_ts_err = []
+epoch_tr_ts_err = []
     
 # ---- network set-up ----
     
-    # fixed
-    para_input_dim = np.shape(xtrain)[-1]
-    para_win_size =  np.shape(xtrain)[1]
+# fixed
+para_input_dim = np.shape(xtrain)[-1]
+para_win_size =  np.shape(xtrain)[1]
     
-    para_max_norm = 0.0
-    para_is_stateful = False
-    para_n_epoch = 500
+para_max_norm = 0.0
+para_is_stateful = False
+para_n_epoch = 100
     
-    # if residual layers are used, keep all dimensions the same 
-    para_bool_residual = False
-    para_bool_attention = ''
-    # temp, var, var-pre, both-att, both-pool
+# if residual layers are used, keep all dimensions the same 
+para_bool_residual = False
+para_bool_attention = 'vari-mv-output'
+# temp, var, var-pre, both-att, both-pool, vari-mv-output'
     
-    # -- plain --
+# -- plain --
     
-    para_lstm_dims_plain = [64]
-    para_dense_dims_plain = [32, 16, 8]
+para_lstm_dims_plain = [64]
+para_dense_dims_plain = [32, 16, 8]
 
-    para_lr_plain = 0.001
-    #0.002
-    para_batch_size_plain = 64
+para_lr_plain = 0.001
+#0.002
+para_batch_size_plain = 64
     
-    para_l2_plain = 0.0001
-    #0.01
-    para_keep_prob_plain = 1.0
+#para_l2_plain = 0.0001
+#0.01
+#para_keep_prob_plain = 1.0
 
     
-    # -- seperate --
+# -- seperate --
     
-    para_lstm_dims_sep = [96]
-    #[96, 96, 96]
-    para_dense_dims_sep = [32, 16, 8]
-    #[32, 32, 32]
+para_lstm_dims_sep = [96]
+#[96, 96, 96]
+para_dense_dims_sep = [32, 16, 8]
+#[32, 32, 32]
 
-    para_lr_sep = 0.002
-    #0.002
-    para_batch_size_sep = 64
+para_lr_sep = 0.002
+#0.002
+para_batch_size_sep = 64
     
-    para_l2_sep = 0.02
-    #0.02
-    para_keep_prob_sep = 1.0
+para_l2_sep = 0.02
+#0.02
+para_keep_prob_sep = 1.0
     
     
-    # -- mv --
+# -- mv --
     
-    para_lstm_dims_mv = [70]
-    para_dense_dims_mv = [32, 16]
-    #[32, 16, 8]
+para_lstm_dims_mv = [70]
+para_dense_dims_mv = [32, 8]
+#[32, 16, 8]
 
-    para_lr_mv = 0.001
-    # no att: 0.002
-    # temp: 0.002
-    # temp general 0.003
-    para_batch_size_mv = 64
+para_lr_mv = 0.002
+# plant 0.002
+# energy 0.003
+para_batch_size_mv = 64
     
-    para_l2_dense_mv = 0.1
-    para_l2_att_mv = 0.001
+#para_l2_dense_mv = 0.1
+para_l2_att_mv = 0.00001
     # no att: 0.001
     # temp loc : 0.001, 0.00001, 161 
     # temp loc cutoff:  0.03, 0.00001, 161
     # temp loc vari sep_tar:
-    para_keep_prob_mv = 1.0
+#para_keep_prob_mv = 1.0
     
     # attention types
-    para_temp_decay_type = ''
+para_temp_decay_type = ''
     # cutoff
-    para_temp_attention_type = 'loc'
+para_temp_attention_type = ''
     # loc, concate
-    para_vari_attention_type = 'logit'
+para_vari_attention_type = 'softmax-all'
     # concat, sum, 'all_var', sep_tar
-    para_pool_type = 'max'
+para_pool_type = ''
     # max, average, 
-    
+# ------------------------------------------------
+
+
+
+def train_nn( l2_dense, dropout_keep_prob, log_file, pre_file ):   
     
 # ---- build and train the model ----
     
@@ -185,55 +188,64 @@ if __name__ == '__main__':
         #tf.set_random_seed(1)
         
         if method_str == 'plain':
+            
+            print ' ---', method_str, ' parameter: ', l2_dense, dropout_keep_prob
+            
             reg = tsLSTM_plain(para_dense_dims_plain, para_lstm_dims_plain, \
                                     para_win_size, para_input_dim, sess, \
-                                    para_lr_plain, para_l2_plain, para_max_norm, para_batch_size_plain, \
+                                    para_lr_plain, l2_dense, para_max_norm, para_batch_size_plain, \
                                     para_bool_residual, para_bool_attention)
             
             log_file += "_plain.txt"
-            model_file += "_plain"
-            attention_file += "_plain.txt"
-            PIK += "plain.dat"
+            #model_file += "_plain"
+            #attention_file += "_plain.txt"
+            #PIK += "plain.dat"
             
             para_batch_size = para_batch_size_plain
-            para_keep_prob = para_keep_prob_plain
+            para_keep_prob = dropout_keep_prob
             
         elif method_str == 'sep':
+            
+            print ' ---', method_str, ' parameter: ', l2_dense, dropout_keep_prob
+            
             reg = tsLSTM_seperate(para_dense_dims_sep, para_lstm_dims_sep, \
                                      para_win_size, para_input_dim, sess, \
-                                     para_lr_sep, para_l2_sep, para_max_norm, para_batch_size_sep, \
+                                     para_lr_sep, l2_dense, para_max_norm, para_batch_size_sep, \
                                      para_bool_residual, para_bool_attention)
             
             log_file += "_sep.txt"
-            model_file += "_sep"
-            attention_file += "_sep.txt"
-            PIK += "sep.dat"
+            #model_file += "_sep"
+            #attention_file += "_sep.txt"
+            #PIK += "sep.dat"
             
             para_batch_size = para_batch_size_sep
-            para_keep_prob = para_keep_prob_sep
+            para_keep_prob = dropout_keep_prob
         
         elif method_str == 'mv':
+            
+            print ' ---', method_str, ' parameter: ', l2_dense, dropout_keep_prob
+            
             reg = tsLSTM_mv(para_dense_dims_mv, para_lstm_dims_mv, \
                             para_win_size,   para_input_dim, sess, \
                             para_lr_mv, para_max_norm, para_batch_size_mv, para_bool_residual, \
-                            para_bool_attention, para_temp_decay_type, para_temp_attention_type, para_l2_dense_mv,\
+                            para_bool_attention, para_temp_decay_type, para_temp_attention_type, l2_dense,\
                             para_l2_att_mv, para_vari_attention_type)
             
             
             log_file += "_mv.txt"
-            model_file += "_mv"
-            attention_file += "_mv.txt"
-            PIK += "mv.dat"
+            #model_file += "_mv"
+            #attention_file += "_mv.txt"
+            #PIK += "mv.dat"
             
             para_batch_size = para_batch_size_mv
-            para_keep_prob = para_keep_prob_mv
+            para_keep_prob = dropout_keep_prob
         
         #   clean logs
         with open(log_file, "w") as text_file:
             text_file.close()
             
-        with open(attention_file, "w") as text_file:
-            text_file.close()
+        #with open(attention_file, "w") as text_file:
+        #    text_file.close()
         
         # initialize the network
         reg.train_ini()
@@ -274,8 +286,12 @@ if __name__ == '__main__':
             train_rmse_epoch = sqrt(1.0*err_sum_epoch/total_cnt)
 
             # monitor training indicators
-            print "At epoch %d: loss %f, train %s, test %s " % ( epoch, loss_epoch*1.0/total_iter,\
-                                                                 train_rmse_epoch, test_rmse_epoch ) 
+            print "At epoch %d: loss %f, train %s, test %s, %f, %f " % ( epoch, loss_epoch*1.0/total_iter,\
+                                                                        train_rmse_epoch, test_rmse_epoch, \
+                                                                        test_mae_epoch,   test_mape_epoch ) 
+            
+            
+            print np.squeeze(yh_test)[:5], np.squeeze(ytest)[:5]
             
             #if method_str == 'mv':
             #    print 'regular: ', reg.test_regularization(xtest, ytest,  para_keep_prob) 
@@ -286,46 +302,67 @@ if __name__ == '__main__':
             # ---- logs of epoch performance    
             
             # write attention weights to txt files
-            if para_bool_attention != '' :
-                with open(attention_file, "a") as text_file:
-                    text_file.write("-- At epoch %d: %s \n" % (epoch, \
-                                                           str(reg.test_attention(xtest[:1], ytest[:1], para_keep_prob)))) 
+            #if para_bool_attention != '' :
+            #    with open(attention_file, "a") as text_file:
+            #        text_file.write("-- At epoch %d: %s \n" % (epoch, \
+            #                                               (reg.test_attention(xtest[:1000], ytest[:1000], para_keep_prob)))) 
             
             # write training and testing errors to txt files
             with open(log_file, "a") as text_file:
-                text_file.write("At epoch %d: loss %f, train %f, test %f\n" % (epoch, loss_epoch*1.0/total_iter, \
+                text_file.write("At epoch %d: loss %f, train %f, test %f, %f, %f \n" % (epoch, loss_epoch*1.0/total_iter, \
                                                                                train_rmse_epoch, test_rmse_epoch,\
-                                                                               test_mae_epoch, test_mape_epoch) )
+                                                                               test_mae_epoch,   test_mape_epoch) )
             
             
             # save epoch errors and the model
-            epoch_tr_ts_err.append([epoch, sqrt(1.0*err_sum_epoch/total_cnt), test_error_epoch[0]])
-            with open(PIK, "wb") as f:
-                pickle.dump(epoch_tr_ts_err, f)
+            #epoch_tr_ts_err.append([epoch, sqrt(1.0*err_sum_epoch/total_cnt), test_error_epoch[0]])
+            #with open(PIK, "wb") as f:
+            #    pickle.dump(epoch_tr_ts_err, f)
                 
-            save_path = saver.save(sess, model_file + "_" + str(epoch) + ".ckpt")
+            #save_path = saver.save(sess, model_file + "_" + str(epoch) + ".ckpt")
             
             
-            # save testing true and prediction values
-            y_yh = np.concatenate( [ytest, yh_test], 1 )
-            y_yh.dump(pre_file + str(epoch) + ".dat")
             
-            '''
-            with open( pre_file + str(epoch) + ".txt", "w" ) as text_file:
-                text_file.close()
+            # save testing true, prediction values and attention
             
-            with open( pre_file + str(epoch) + ".txt", "w" ) as text_file:
-                text_file.write( "%s\n" %( str(list(zip(np.squeeze(ytest), np.squeeze(yh_test)))) ) )
-            '''
+            if para_bool_attention =='':
+                
+                y_yh = np.concatenate( [ytest, yh_test], 1 )
+                y_yh.dump(pre_file + str(epoch) + ".dat")
+            
+            else:
+                tmp_att = reg.test_attention(xtest, ytest, para_keep_prob)
+                
+                print np.shape(tmp_att)
+                tmp_att = np.squeeze(tmp_att)
+                
+                y_yh = np.concatenate( [ytest, yh_test], 1 )
+                y_yh_att = np.concatenate( [y_yh, tmp_att], 1 )
+            
+                y_yh_att.dump(pre_file + str(epoch) + ".dat")
+            
+                print tmp_att[:1]
+            
+            
+            #with open( pre_file + str(epoch) + ".txt", "w" ) as text_file:
+            #    text_file.close()
+            
+            #with open( pre_file + str(epoch) + ".txt", "w" ) as text_file:
+            #    text_file.write( "%s\n" %( str(list(zip(np.squeeze(ytest), np.squeeze(yh_test)))) ) )
+            
             
             # ---
         
         print "Optimization Finished!"
-        
-        
-        
-        
-        
-        
-        
+
+    
+# ----- loop over dropout and l2 
+
+for tmp_keep_prob in [1.0, 0.6]:
+    for tmp_l2 in [0.0001, 0.001, 0.01, 0.1, 1, 2]:
+        log_file   = "res/rnn_" + str(tmp_keep_prob) + str(tmp_l2) 
+            
+        pre_file = "res/pred/pred_" + str(tmp_keep_prob) + str(tmp_l2) + "_"
+            
+        train_nn( tmp_l2, tmp_keep_prob, log_file, pre_file ) 
         
