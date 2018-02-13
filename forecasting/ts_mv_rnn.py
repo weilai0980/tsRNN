@@ -975,32 +975,7 @@ def mv_dense( h_vari, dim_vari, scope, num_vari, dim_to, bool_output ):
     
     return h, tf.nn.l2_loss(w)    
 
-'''
-def mv_variate_mixture( h_last, h_dim, scope, num_vari, pred ):
-    
-    # h_last [V B D]  pred [B V]
-    with tf.variable_scope(scope):
-        
-        w_var = tf.get_variable('w_var', [h_dim, 1], initializer=tf.contrib.layers.xavier_initializer())
-        b_var = tf.Variable( tf.random_normal([1]) )
-            
-        # [V-1 B D], [1 B D]
-        h_indep, h_tar = tf.split(h_temp, num_or_size_splits = [num_vari - 1, 1], axis = 0)
-        
-        # [B V-1], [B 1]
-        pre_indep, pre_tar = tf.split(pred, num_or_size_splits = [num_vari - 1, 1], axis = 1)
-        
-        #? bias nonlinear activation ?
-        # [V-1 B 1] = [V-1 B D]*[D 1]
-        logits = tf.transpose( tf.tensordot(h_indep, w_var, axes=1) + b_var, [1, 0, 2] )
-        # [B V-1]
-        var_weight = tf.squeeze( tf.nn.softmax(logits , dim = 1), [2] )
-                        
-        # sum-up, [B D] - [B 1]
-        pre_indep_weighted = tf.reduce_sum( pre_indep*var_weight, 1, True )
-            
-    return pre_indep_weighted + pre_tar, tf.nn.l2_loss(w_var) 
-'''
+
 
 # ---- multi-variate RNN ----
 
@@ -1235,6 +1210,11 @@ class tsLSTM_mv():
                 h_temp = tf.transpose(h, [1, 0, 2])
                 # [B D*V]
                 h_last = h_temp[-1]
+                
+                
+                #dropout
+                h_last = tf.nn.dropout(h_last, self.keep_prob)
+                
                 
                 # [V B D]
                 h_last_vari = tf.split(h_last, [int(n_lstm_dim_layers[0]/self.N_DATA_DIM)]*self.N_DATA_DIM, 1)

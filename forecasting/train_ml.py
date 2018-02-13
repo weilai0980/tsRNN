@@ -54,6 +54,12 @@ file_addr = ["../../dataset/dataset_ts/pm25_xtrain.dat", \
                  "../../dataset/dataset_ts/pm25_ytest.dat"]
 file_dic.update( {"pm25": file_addr} )
 
+file_addr = ["../../dataset/dataset_ts/plant_xtrain.dat", \
+                 "../../dataset/dataset_ts/plant_xtest.dat",\
+                 "../../dataset/dataset_ts/plant_ytrain.dat", \
+                 "../../dataset/dataset_ts/plant_ytest.dat"]
+file_dic.update( {"plant": file_addr} )
+
 # ---- normalization ----
 xtrain, ytrain, xtest, ytest, _, _ = \
 prepare_train_test_data( False, file_dic[dataset_str] )

@@ -140,7 +140,7 @@ para_keep_prob_sep = 1.0
     
 # -- mv --
     
-para_lstm_dims_mv = [70]
+para_lstm_dims_mv = [80]
 para_dense_dims_mv = [32, 8]
 #[32, 16, 8]
 

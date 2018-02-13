@@ -27,8 +27,9 @@ mv_rnn final speed-up
 
 --- To do ---
 
+posterir on both training and testing data 
 
-bayesian rnn + attention
+bayesian dropout rnn + attention
 
 
 REINFORCE
