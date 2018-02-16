@@ -105,7 +105,7 @@ para_n_epoch = 100
     
 # if residual layers are used, keep all dimensions the same 
 para_bool_residual = False
-para_bool_attention = 'vari-mv-output'
+para_bool_attention = 'temp'
 # temp, var, var-pre, both-att, both-pool, vari-mv-output'
     
 # -- plain --
@@ -160,9 +160,9 @@ para_l2_att_mv = 0.00001
     # attention types
 para_temp_decay_type = ''
     # cutoff
-para_temp_attention_type = ''
+para_temp_attention_type = 'loc'
     # loc, concate
-para_vari_attention_type = 'softmax-all'
+para_vari_attention_type = ''
     # concat, sum, 'all_var', sep_tar
 para_pool_type = ''
     # max, average, 

@@ -31,6 +31,9 @@ posterir on both training and testing data
 
 bayesian dropout rnn + attention
 
+epoch rmse, mae 
+
+
 
 REINFORCE
 
