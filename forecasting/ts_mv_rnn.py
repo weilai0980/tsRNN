@@ -270,7 +270,7 @@ class tsLSTM_mv():
         self.keep_prob = tf.placeholder(tf.float32)
         
         steps = tf.constant( range(self.N_STEPS-2, -1, -1), dtype=tf.float32 )
-        alpha = tf.constant( 0.3, dtype=tf.float32 )
+        alpha = tf.constant( 0.2, dtype=tf.float32 )
         
         # begin to build the graph
         self.sess = session

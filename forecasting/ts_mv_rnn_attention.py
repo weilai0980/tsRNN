@@ -52,7 +52,8 @@ def res_dense(x, x_dim, hidden_dim, n_layers, scope, dropout_keep_prob):
         with tf.variable_scope(scope):
                 # initilization
                 w = tf.get_variable('w', [x_dim, hidden_dim], dtype = tf.float32,
-                                          initializer = tf.contrib.layers.xavier_initializer())
+                                         initializer = tf.contrib.layers.variance_scaling_initializer())
+                                         #initializer = tf.contrib.layers.xavier_initializer())
                 b = tf.Variable(tf.zeros([hidden_dim]))
                 h = tf.nn.relu(tf.matmul(x, w) + b )
 
@@ -63,7 +64,9 @@ def res_dense(x, x_dim, hidden_dim, n_layers, scope, dropout_keep_prob):
         for i in range(1, n_layers):
             
             with tf.variable_scope(scope+str(i)):
-                w = tf.get_variable('w', [hidden_dim, hidden_dim], initializer=tf.contrib.layers.xavier_initializer())
+                w = tf.get_variable('w', [hidden_dim, hidden_dim], \
+                                    initializer = tf.contrib.layers.variance_scaling_initializer())
+                                    #initializer=tf.contrib.layers.xavier_initializer())
                 b = tf.Variable(tf.zeros( hidden_dim ))
                 
                 # residual connection
@@ -83,7 +86,8 @@ def plain_dense(x, x_dim, dim_layers, scope, dropout_keep_prob):
         with tf.variable_scope(scope):
                 # initilization
                 w = tf.get_variable('w', [x_dim, dim_layers[0]], dtype=tf.float32,\
-                                    initializer=tf.contrib.layers.xavier_initializer())
+                                    initializer = tf.contrib.layers.variance_scaling_initializer())
+                                    #initializer=tf.contrib.layers.xavier_initializer())
                 b = tf.Variable(tf.zeros([dim_layers[0]]))
                 
                 # ?
@@ -100,7 +104,8 @@ def plain_dense(x, x_dim, dim_layers, scope, dropout_keep_prob):
             
             with tf.variable_scope(scope+str(i)):
                 w = tf.get_variable('w', [dim_layers[i-1], dim_layers[i]], dtype=tf.float32,\
-                                    initializer=tf.contrib.layers.xavier_initializer())
+                                    initializer = tf.contrib.layers.variance_scaling_initializer())
+                                    #initializer=tf.contrib.layers.xavier_initializer())
                 b = tf.Variable(tf.zeros( dim_layers[i] ))
                 
                 # ?
@@ -120,7 +125,8 @@ def plain_dense_leaky(x, x_dim, dim_layers, scope, dropout_keep_prob, alpha):
         with tf.variable_scope(scope):
                 # initilization
                 w = tf.get_variable('w', [x_dim, dim_layers[0]], dtype=tf.float32,\
-                                    initializer=tf.contrib.layers.xavier_initializer())
+                                    initializer = tf.contrib.layers.variance_scaling_initializer())
+                                    #initializer=tf.contrib.layers.xavier_initializer())
                 b = tf.Variable(tf.zeros([dim_layers[0]]))
                 
                 # ?
@@ -138,8 +144,9 @@ def plain_dense_leaky(x, x_dim, dim_layers, scope, dropout_keep_prob, alpha):
             
             with tf.variable_scope(scope+str(i)):
                 w = tf.get_variable('w', [dim_layers[i-1], dim_layers[i]], dtype=tf.float32,\
-                                    initializer=tf.contrib.layers.xavier_initializer())
-                b = tf.Variable(tf.zeros( dim_layers[i] ))
+                                    initializer = tf.contrib.layers.variance_scaling_initializer())
+                                    #initializer=tf.contrib.layers.xavier_initializer())
+                b = tf.Variable(tf.zeros(dim_layers[i]))
                 
                 # ?
                 tmp_h = tf.matmul(h, w) + b 

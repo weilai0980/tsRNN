@@ -27,12 +27,27 @@ mv_rnn final speed-up
 
 --- To do ---
 
+Bayesian:
+  http://andymiller.github.io/2016/12/19/elbo-gradient-estimators.html#fn:2
+  https://gist.github.com/VikingPenguinYT/665769ba03115b1a0888893eaf1d4f13
+  https://theintelligenceofinformation.wordpress.com/2017/06/02/pydata-london-2017-bayesian-deep-learning-talk-by-andrew-rowan/
+  https://gist.github.com/tokestermw/a9de2ef498a09747bbf673ddf6ea4843
+
+dropout in training and testing phase 
+
+point-wise loss, activiation added into attention
+
+pure probabilistic model via variance term
+
 posterir on both training and testing data 
 
 bayesian dropout rnn + attention
 
 epoch rmse, mae 
 
+
+with tf.variable_scope('RNN', initializer=tf.contrib.layers.xavier_initializer()):
+    outputs, state = tf.nn.dynamic_rnn(cell, ...)
 
 
 REINFORCE
