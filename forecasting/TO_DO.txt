@@ -25,6 +25,7 @@ time decay attention:
 
 mv_rnn final speed-up
 
+
 --- To do ---
 
 Bayesian:
@@ -35,9 +36,9 @@ Bayesian:
 
 dropout in training and testing phase 
 
-point-wise loss, activiation added into attention
+point-wise loss, hidden activiation added into attention
 
-pure probabilistic model via variance term
+pure probabilistic model with variance term
 
 posterir on both training and testing data 
 
@@ -45,9 +46,10 @@ bayesian dropout rnn + attention
 
 epoch rmse, mae 
 
+initilizaer:
 
-with tf.variable_scope('RNN', initializer=tf.contrib.layers.xavier_initializer()):
-    outputs, state = tf.nn.dynamic_rnn(cell, ...)
+   with tf.variable_scope('RNN', initializer=tf.contrib.layers.xavier_initializer()):
+      outputs, state = tf.nn.dynamic_rnn(cell, ...)
 
 
 REINFORCE
@@ -56,7 +58,8 @@ memory cell
 
 Sequencial loss function 
 
-Baseline: (NIPS 2016)temporal regularized time series, prophet 
+Baseline
+   (NIPS 2016)temporal regularized time series, prophet , python automatic time series forecasting , causalimpact
 
 normalization the whole or each batch
 
@@ -80,9 +83,6 @@ some improvements on memory moduel in LSTM
 mixed effect in temporal data: e.g. air pollution data: heterogenous 
 
 
-4. python automatic time series forecasting 
-5. prophet 
-causalimpact
 
 
 # basic model 
