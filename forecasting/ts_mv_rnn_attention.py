@@ -1,4 +1,17 @@
-    
+import sys
+
+import collections
+import hashlib
+import numbers
+
+from tensorflow.python.ops import rnn_cell_impl
+from tensorflow.python.ops.rnn_cell_impl import *
+
+# local 
+from custom_rnn_cell import *
+from utils_libs import *
+
+
 # ---- residual and plain dense layers ----  
     
 def res_lstm(x, hidden_dim, n_layers, scope, dropout_keep_prob):
@@ -168,7 +181,7 @@ def attention_temp_mlp( h, h_dim, att_dim, scope ):
     with tf.variable_scope(scope):
         
         w = tf.get_variable('w', [h_dim, att_dim], initializer=tf.contrib.layers.xavier_initializer())
-        #? add bias ?
+        #? bias and nonlinear activiation 
         tmp_h = tf.nn.relu( tf.tensordot(h, w, axes=1) )
 
         w_logit = tf.get_variable('w_log', [att_dim, 1], initializer=tf.contrib.layers.xavier_initializer())
@@ -256,6 +269,8 @@ def sep_attention_variate_temp_logit( h_list, h_dim, scope, step ):
         
     return tf.squeeze(tf.concat(h_var_list, 2)), tf.nn.l2_loss(w_var) + tf.nn.l2_loss(w_temp), [temp_weight, var_weight]
 
+
+
 # ---- Attention for MV-RNN ----
 
 def mv_pooling_temp( h_var, pool_type, step ):
@@ -284,8 +299,8 @@ def mv_attention_variate( h_temp, var_dim, scope, num_vari, att_type ):
     # [V B D]
     with tf.variable_scope(scope):
         
-        # softmax
-        if att_type == 'softmax-exg':
+        # on independent variables 
+        if att_type == 'vari_softmax_indepen':
             
             # [V B D]
             w_var = tf.get_variable('w_var', [var_dim, 1], initializer=tf.contrib.layers.xavier_initializer())
@@ -311,8 +326,9 @@ def mv_attention_variate( h_temp, var_dim, scope, num_vari, att_type ):
             
             # [B 2D]
             h_res = tf.concat([h_indep_weighted, h_tar_squeeze], 1)
-            
-        elif att_type == 'softmax-all':
+        
+        # on all including the target and independent variables
+        elif att_type == 'vari_softmax_all':
             
             # [V B D]
             w_var = tf.get_variable('w_var', [var_dim, 1], initializer=tf.contrib.layers.xavier_initializer())
@@ -322,12 +338,51 @@ def mv_attention_variate( h_temp, var_dim, scope, num_vari, att_type ):
             # [V B 1] = [V B D]*[D 1]
             logits = tf.transpose( tf.tensordot(h_temp, w_var, axes=1) + b_var, [1, 0, 2] )
             # [B V 1]
-            var_weight = tf.nn.softmax( logits , dim = 1 )
+            var_weight = tf.nn.softmax( logits, dim = 1 )
             
-            # for place holder
-            h_res = h_temp
+            # [B V D]
+            h_trans = tf.transpose(h_temp, [1, 0, 2])
+            h_weighted = tf.reduce_sum( h_trans*var_weight, 1 )
+            
+            # [B D]
+            h_res = h_weighted
+            
+            
+        # on all including the target and independent variables
+        elif att_type == 'vari_softmax_all_concat':
+            
+            # [V B D]
+            w_var = tf.get_variable('w_var', [var_dim, 1], initializer=tf.contrib.layers.xavier_initializer())
+            b_var = tf.Variable( tf.random_normal([1]) )
+            
+            #? bias nonlinear activation ?
+            # [V B 1] = [V B D]*[D 1]
+            logits = tf.transpose( tf.tensordot(h_temp, w_var, axes=1) + b_var, [1, 0, 2] )
+            # [B V 1]
+            var_weight = tf.nn.softmax( logits, dim = 1 )
+            
+            
+            
+            # concatenate tmph_before and tmph_last
+            # [V B T-1 D]
+            #last_tile = tf.tile(tmph_last, [1, 1, step-1, 1])
+            #tmph_tile = tf.concat( [tmph_before, last_tile], 3 )
+            
+            # ? bias nonlinear activation ?
+            #temp_logit = tf.reduce_sum( tmph_tile * w_temp, 3 ) 
+            
+            
+            
+            # [B V D]
+            h_trans = tf.transpose(h_temp, [1, 0, 2])
+            h_weighted = tf.reduce_sum( h_trans*var_weight, 1 )
+            
+            # [B D]
+            h_res = h_weighted
         
-        elif att_type == 'sigmoid':
+        
+        # on indepedent variables 
+        elif att_type == 'vari_sigmoid':
             
             # [V B D]
             w_var = tf.get_variable('w_var', [var_dim, 1], initializer=tf.contrib.layers.xavier_initializer())
@@ -348,14 +403,16 @@ def mv_attention_variate( h_temp, var_dim, scope, num_vari, att_type ):
             
             # [V B D]
             h_var_list = tf.split(h_weighted, num_or_size_splits = num_vari, axis = 0) 
-            # [B 2H]
+            # [B H]
             h_res = tf.squeeze(tf.concat(h_var_list, 2)) 
             
+            # [B V-1 1]
             var_weight = tf.transpose(var_weight, [1,0,2])
             
-        elif att_type == 'mlp':
+        # softmax on indepedent variables 
+        elif att_type == 'vari_mlp':
             
-            interm_dim =  var_dim/2
+            interm_dim = var_dim/2
             
             # [D d]
             w_dense = tf.get_variable('w_dense', [ var_dim, interm_dim ],\
@@ -401,6 +458,7 @@ def mv_attention_variate( h_temp, var_dim, scope, num_vari, att_type ):
     return h_res, tf.nn.l2_loss(w_var), var_weight
 
 
+'''
 # variate attention based on the temporal weighted hiddens
 def mv_attention_variate_after_temp( h_temp, h_dim, scope, num_vari, att_type ):
     
@@ -528,10 +586,10 @@ def mv_attention_variate_after_temp( h_temp, h_dim, scope, num_vari, att_type ):
             print '[ERROR] variable attention type'
         
     return h_res, tf.nn.l2_loss(w_var), var_weight
-
+'''
 
 # unified temporal attention 
-def mv_attention_temp( h_list, h_dim, scope, step, step_idx, decay_activation, att_type ):
+def mv_attention_temp( h_list, v_dim, scope, step, step_idx, decay_activation, att_type, num_vari ):
     
     with tf.variable_scope(scope):
         
@@ -541,42 +599,38 @@ def mv_attention_temp( h_list, h_dim, scope, step, step_idx, decay_activation, a
         tmph_before, tmph_last = tf.split(tmph, [step-1, 1], 2)
         
         # -- temporal logits
-        if att_type == 'loc':
+        if att_type == 'temp_loc':
             
-            w_temp = tf.get_variable('w_temp', [len(h_list), 1, 1, h_dim], initializer=tf.contrib.layers.xavier_initializer())
+            w_temp = tf.get_variable('w_temp', [num_vari, 1, 1, v_dim], initializer=tf.contrib.layers.xavier_initializer())
             # ?
-            b_temp = tf.Variable( tf.zeros([len(h_list), 1, 1, 1]) )
-            w_mul = tf.get_variable('w_mul', [len(h_list), 1, 1], initializer=tf.contrib.layers.xavier_initializer())
+            b_temp = tf.Variable( tf.zeros([num_vari, 1, 1, 1]) )
             
             # ? bias nonlinear activation ?
             #[V, B, T-1]
             temp_logit = tf.nn.tanh(tf.reduce_sum(tmph_before * w_temp + b_temp, 3))
             #temp_logit = tf.reduce_sum(tmph_before * w_temp, 3)
             
-            # for decay
-            # temp_logit = tf.sigmoid( tf.reduce_sum(tmph_before * w_temp + b_temp, 3) )
-            
             # empty and relu activation 
             # ? use relu if with decay ?
             
-        elif att_type == 'bilinear':
+        elif att_type == 'temp_bilinear':
             
-            w_temp = tf.get_variable('w_temp', [len(h_list), 1, h_dim, h_dim],\
+            w_temp = tf.get_variable('w_temp', [num_vari, 1, v_dim, v_dim],\
                                      initializer=tf.contrib.layers.xavier_initializer())
-            b_temp = tf.Variable( tf.zeros([len(h_list), 1, 1, 1]) )
+            b_temp = tf.Variable( tf.zeros([num_vari, 1, 1, 1]) )
             
             #[V, B, 1, D]
             tmp = tf.reduce_sum( tmph_last * w_temp, 3 )
             tmp = tf.expand_dims(tmp, 2)
         
             # ? bias nonlinear activation ?
-            temp_logit = tf.reduce_sum(tmph_before * tmp, 3)
+            temp_logit = tf.nn.tanh( tf.reduce_sum(tmph_before * tmp + b_temp, 3) )
             
-        elif att_type == 'concat':
+        elif att_type == 'temp_concat':
             
-            w_temp = tf.get_variable('w_temp', [len(h_list), 1, 1, h_dim*2],\
+            w_temp = tf.get_variable('w_temp', [num_vari, 1, 1, v_dim*2],\
                                      initializer=tf.contrib.layers.xavier_initializer())
-            b_temp = tf.Variable( tf.zeros([len(h_list), 1, 1, 1]) )
+            b_temp = tf.Variable( tf.zeros([num_vari, 1, 1, 1]) )
             
             # concatenate tmph_before and tmph_last
             # [V B T-1 D]
@@ -586,13 +640,13 @@ def mv_attention_temp( h_list, h_dim, scope, step, step_idx, decay_activation, a
             # ? bias nonlinear activation ?
             temp_logit = tf.reduce_sum( tmph_tile * w_temp, 3 ) 
             
-        elif att_type == 'mlp':
+        elif att_type == 'temp_mlp':
             
             interm_dim = 8
             # [V 1 1 2D d]
-            w_temp = tf.get_variable('w_temp', [len(h_list), 1, 1, h_dim*2, interm_dim],\
+            w_temp = tf.get_variable('w_temp', [num_vari, 1, 1, v_dim*2, interm_dim],\
                                      initializer = tf.contrib.layers.xavier_initializer())
-            b_temp = tf.Variable( tf.zeros([len(h_list), 1, 1, interm_dim]) )
+            b_temp = tf.Variable( tf.zeros([num_vari, 1, 1, interm_dim]) )
             
             # concatenate tmph_before and tmph_last
             # [V B T-1 D]
@@ -607,9 +661,9 @@ def mv_attention_temp( h_list, h_dim, scope, step, step_idx, decay_activation, a
             interm_h = tf.nn.tanh( tf.reduce_sum( tmph_tile * w_temp + b_temp, 3 ) ) 
             
             # [V 1 1 d]
-            w_mlp = tf.get_variable('w_mlp', [len(h_list), 1, 1, interm_dim],\
+            w_mlp = tf.get_variable('w_mlp', [num_vari, 1, 1, interm_dim],\
                                      initializer=tf.contrib.layers.xavier_initializer()) 
-            b_mlp = tf.Variable( tf.zeros([len(h_list), 1, 1, 1]) )
+            b_mlp = tf.Variable( tf.zeros([num_vari, 1, 1, 1]) )
             
             # ? bias nonlinear activation ?
             temp_logit = tf.sigmoid( tf.tf.reduce_sum( interm_h * w_mlp, 3 ) )
@@ -620,23 +674,23 @@ def mv_attention_temp( h_list, h_dim, scope, step, step_idx, decay_activation, a
         
         # -- temporal decay
         # [V 1 ]
-        w_decay = tf.get_variable('w_decay', [len(h_list), 1], initializer = tf.contrib.layers.xavier_initializer())
+        w_decay = tf.get_variable('w_decay', [num_vari, 1], initializer = tf.contrib.layers.xavier_initializer())
         w_decay = tf.square(w_decay)
         
-        b_decay = tf.Variable( tf.zeros([len(h_list), 1]) )
+        b_decay = tf.Variable( tf.zeros([num_vari, 1]) )
         step_idx = tf.reshape(step_idx, [1, step-1])
         
         # new added
         # [V, T-1]
-        v_step = tf.tile(step_idx, [len(h_list), 1])
+        v_step = tf.tile(step_idx, [num_vari, 1])
         
         # ? add to regularization ?
-        cutoff = tf.get_variable('cutoff', [len(h_list), 1], initializer = tf.contrib.layers.xavier_initializer())
+        cutoff = tf.get_variable('cutoff', [num_vari, 1], initializer = tf.contrib.layers.xavier_initializer())
         # [V, 1]
         cutoff_decay = tf.sigmoid(cutoff)*(step-1)
         
         # ? bias ?
-        if decay_activation == 'exp':
+        if decay_activation == 'decay_exp':
             #temp_decay = tf.exp( tf.matmul(w_decay, -1*step_idx) )
             #temp_decay = tf.expand_dims(temp_decay, 1)
             
@@ -647,7 +701,7 @@ def mv_attention_temp( h_list, h_dim, scope, step, step_idx, decay_activation, a
             temp_decay = tf.expand_dims(temp_decay, 1)
             
             
-        elif decay_activation == 'sigmoid':
+        elif decay_activation == 'decay_sigmoid':
             #temp_decay = tf.sigmoid( tf.matmul(w_decay, -1*step_idx) )
             #temp_decay = tf.expand_dims(temp_decay, 1)
             
@@ -657,7 +711,7 @@ def mv_attention_temp( h_list, h_dim, scope, step, step_idx, decay_activation, a
             temp_decay = tf.expand_dims(temp_decay, 1)
             
         
-        elif decay_activation == 'cutoff':
+        elif decay_activation == 'decay_cutoff':
             
             # ? bias ?
             # [V 1] - [V T-1]
@@ -687,7 +741,7 @@ def mv_attention_temp( h_list, h_dim, scope, step, step_idx, decay_activation, a
         
         
         # -- attention weight
-        if decay_activation == 'cutoff':
+        if decay_activation == 'decay_cutoff':
             # [V B 1]
             tmpsum = tf.expand_dims( tf.reduce_sum(temp_logit_decay, [2]), -1 )
             temp_weight = 1.0*temp_logit_decay/(tmpsum+1e-10)
@@ -707,10 +761,9 @@ def mv_attention_temp( h_list, h_dim, scope, step, step_idx, decay_activation, a
         
         # ?
         #h_temp = tmph_last
-        #h_var_list = tf.split(h_temp, num_or_size_splits = len(h_list), axis = 0) 
     
     #
-    if decay_activation == 'cutoff':
+    if decay_activation == 'decay_cutoff':
         # ?
         return h_temp, tf.nn.l2_loss(w_temp) + tf.nn.l2_loss(cutoff), temp_weight
     
