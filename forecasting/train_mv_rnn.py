@@ -113,7 +113,7 @@ para_bool_attention = 'both-att'
 para_lstm_dims_plain = [64]
 para_dense_dims_plain = [32, 16, 8]
 
-para_lr_plain = 0.001
+para_lr_plain = 0.002
 #0.002
 para_batch_size_plain = 64
     
@@ -144,7 +144,7 @@ para_lstm_dims_mv = [70]
 para_dense_dims_mv = [32, 8]
 #[32, 16, 8]
 
-para_lr_mv = 0.001
+para_lr_mv = 0.003
 # plant 0.002
 # energy 0.003
 para_batch_size_mv = 64
@@ -157,11 +157,12 @@ para_l2_att_mv = 0.00001
     # temp loc vari sep_tar:
 #para_keep_prob_mv = 1.0
     
-    # attention types
+
+para_temp_attention_type = 'temp_loc'
+    # loc, concate
+# attention types
 para_temp_decay_type = ''
     # cutoff
-para_temp_attention_type = 'temp_concat'
-    # loc, concate
 para_vari_attention_type = 'vari_softmax_all'
     # concat, sum, 'all_var', sep_tar
 para_pool_type = ''
@@ -230,12 +231,10 @@ def train_nn( l2_dense, dropout_keep_prob, log_file, pre_file ):
             
             print ' ---', method_str, ' parameter: ', l2_dense, dropout_keep_prob
             
-            reg = tsLSTM_mv(para_dense_dims_mv, para_lstm_dims_mv, \
-                            para_win_size,   para_input_dim, sess, \
+            reg = tsLSTM_mv(para_dense_dims_mv, para_lstm_dims_mv, para_win_size,   para_input_dim, sess, \
                             para_lr_mv, para_max_norm, para_batch_size_mv, para_bool_residual, \
                             para_bool_attention, para_temp_decay_type, para_temp_attention_type,\
                             l2_dense, para_l2_att_mv, para_vari_attention_type, para_loss_type)
-            
             
             log_file += "_mv.txt"
             #model_file += "_mv"
@@ -243,7 +242,8 @@ def train_nn( l2_dense, dropout_keep_prob, log_file, pre_file ):
             #PIK += "mv.dat"
             
             para_batch_size = para_batch_size_mv
-            para_keep_prob = dropout_keep_prob
+            para_keep_prob = [0.4, 0.8]
+            #dropout_keep_prob
         
         #   clean logs
         with open(log_file, "w") as text_file:
@@ -287,19 +287,25 @@ def train_nn( l2_dense, dropout_keep_prob, log_file, pre_file ):
                 err_sum_epoch += tmp_err
             
             
+            # learning rate update
+            #if epoch >= 20:
+            #    reg.train_update_optimizer(para_lr_mv)
+            
+            
             if para_bool_attention =='':
                 
                 # [self.y_hat, self.rmse, self.mae, self.mape]
-                yh_test, test_rmse_epoch, test_mae_epoch, test_mape_epoch = reg.inference(xtest, ytest, 1.0)
+                yh_test, test_rmse_epoch, test_mae_epoch, test_mape_epoch = reg.inference(xtest, ytest, [1.0, 1.0])
                 train_rmse_epoch = sqrt(1.0*err_sum_epoch/total_cnt)
                 
+                # dump file of truth and prediction
                 y_yh = np.concatenate( [ytest, yh_test], 1 )
                 y_yh.dump(pre_file + str(epoch) + ".dat")
             
             else:
                 
                 # [self.y_hat, self.rmse, self.mae, self.mape]
-                tmp_att, yh_test, test_rmse_epoch, test_mae_epoch, test_mape_epoch = reg.inference(xtest, ytest, 1.0)
+                tmp_att, yh_test, test_rmse_epoch, test_mae_epoch, test_mape_epoch = reg.inference(xtest, ytest, [1.0, 1.0])
                 train_rmse_epoch = sqrt(1.0*err_sum_epoch/total_cnt)
                 
                 #tmp_att = reg.test_attention(xtest, ytest, 1.0)
@@ -308,6 +314,7 @@ def train_nn( l2_dense, dropout_keep_prob, log_file, pre_file ):
                 #print np.shape(tmp_att)
                 tmp_att = np.squeeze(tmp_att)
                 
+                # dump file of truth, prediction and attentions 
                 y_yh = np.concatenate( [ytest, yh_test], 1 )
                 y_yh_att = np.concatenate( [y_yh, tmp_att], 1 )
             
@@ -323,7 +330,7 @@ def train_nn( l2_dense, dropout_keep_prob, log_file, pre_file ):
             print "testing samples: ", np.squeeze(yh_test)[:5], np.squeeze(ytest)[:5]
             
             if para_bool_attention != '':
-                print "attention samples: ", tmp_att[:5], '\n'
+                print "attention samples: \n", tmp_att[:5], '\n'
             
             
             # ---- logs of epoch performance    
@@ -364,7 +371,7 @@ def train_nn( l2_dense, dropout_keep_prob, log_file, pre_file ):
     
 # ----- loop over dropout and l2 
 
-for tmp_keep_prob in [0.5]:
+for tmp_keep_prob in [0.4]:
     for tmp_l2 in [0.0001, 0.001, 0.01, 0.1, 1]:
         log_file   = "res/rnn_" + str(tmp_keep_prob) + str(tmp_l2) 
             

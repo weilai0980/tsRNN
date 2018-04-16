@@ -72,7 +72,7 @@ print np.shape(xtrain), np.shape(ytrain), np.shape(xtest), np.shape(ytest)
 #with open("res/tsML.txt", "w") as text_file:
 #    text_file.close()
 
-
+'''
 # GBT performance
 print "\nStart to train GBT"
 
@@ -118,7 +118,7 @@ print "n_estimator, RMSE:", n_err
 
 with open("res/tsML.txt", "a") as text_file:
     text_file.write( "RANDOM FOREST %s\n" %str(n_err) )
-
+'''
     
     
 # Bayesian regression
@@ -134,22 +134,27 @@ bayesian_reg.fit(xtrain, ytrain)
 #        normalize=False, tol=0.001, verbose=False)
 
 y_pred = bayesian_reg.predict ( xtest )
-
-print np.shape(ytest), np.shape(xtest)
-tmpval= sqrt(mean( [(ytest[i]-ytmp)**2 for i,ytmp in enumerate( y_pred )] ))
+tmp_rmse = sqrt(mean( [(ytest[i]-ytmp)**2 for i,ytmp in enumerate( y_pred )] ))
+tmp_mae = (mean(  [abs(ytest[i]-ytmp) for i,ytmp in enumerate( y_pred )] ))
+print tmp_rmse, tmp_mae, '\n', ytest[:10], '\n', y_pred[:10]
 
 with open("res/tsML.txt", "a") as text_file:
-    text_file.write( "BAYESIAN REGRESSION %f\n"%tmpval)
+    text_file.write( "BAYESIAN REGRESSION %f\n"%tmp_rmse)
 
-    
     
 # ElasticNet
 print "\nStart to train ElasticNet"
 
-
 err_min, err_list = enet_alpha_l1( [0, 0.001, 0.01, 0.1, 1] , [0.7] , xtrain, ytrain, xtest, ytest)
 # 0  0.01 0.1 1 10 100
-print err_min
+
+enet = ElasticNet(alpha = err_min[0], l1_ratio = err_min[1])
+enet.fit(xtrain, ytrain)
+            
+y_pred = enet.predict( xtest )
+tmp_rmse = sqrt(mean( [(ytest[i]-ytmp)**2 for i,ytmp in enumerate( y_pred )] ))
+tmp_mae = (mean(  [abs(ytest[i]-ytmp) for i,ytmp in enumerate( y_pred )] ))
+print tmp_rmse, tmp_mae, '\n', ytest[:10], '\n', y_pred[:10]
 
 with open("res/tsML.txt", "a") as text_file:
     text_file.write( "ELASTIC NET %s\n"%str(err_min))

@@ -336,7 +336,7 @@ def mv_attention_variate( h_temp, var_dim, scope, num_vari, att_type ):
             
             #? bias nonlinear activation ?
             # [V B 1] = [V B D]*[D 1]
-            logits = tf.transpose( tf.tensordot(h_temp, w_var, axes=1) + b_var, [1, 0, 2] )
+            logits = tf.nn.tanh( tf.transpose( tf.tensordot(h_temp, w_var, axes=1) + b_var, [1, 0, 2] ) )
             # [B V 1]
             var_weight = tf.nn.softmax( logits, dim = 1 )
             
@@ -638,7 +638,7 @@ def mv_attention_temp( h_list, v_dim, scope, step, step_idx, decay_activation, a
             tmph_tile = tf.concat( [tmph_before, last_tile], 3 )
             
             # ? bias nonlinear activation ?
-            temp_logit = tf.reduce_sum( tmph_tile * w_temp, 3 ) 
+            temp_logit = tf.nn.tanh( tf.reduce_sum( tmph_tile * w_temp, 3 ) ) 
             
         elif att_type == 'temp_mlp':
             
@@ -669,7 +669,7 @@ def mv_attention_temp( h_list, v_dim, scope, step, step_idx, decay_activation, a
             temp_logit = tf.sigmoid( tf.tf.reduce_sum( interm_h * w_mlp, 3 ) )
         
         else:
-            print '[ERROR] attention type'
+            print '[ERROR] temporal attention type'
         
         
         # -- temporal decay
@@ -772,7 +772,7 @@ def mv_attention_temp( h_list, v_dim, scope, step, step_idx, decay_activation, a
 #tf.squeeze(tf.concat(h_var_list, 2), [0])
     
 
-def mv_dense( h_vari, dim_vari, scope, num_vari, dim_to, bool_output ):
+def mv_dense( h_vari, dim_vari, scope, num_vari, dim_to, bool_activation ):
     
     # argu [V B D]
     
@@ -788,7 +788,7 @@ def mv_dense( h_vari, dim_vari, scope, num_vari, dim_to, bool_output ):
         
         # [V B D 1] * [V 1 D d] -> [V B d]
         # ?
-        if bool_output == True:
+        if bool_activation == True:
             h = tf.reduce_sum(h_expand * w + b, 2)
         else:
             h = tf.nn.relu( tf.reduce_sum(h_expand * w + b, 2) ) 

@@ -33,18 +33,63 @@ dropout in training and testing phase
 
 epoch rmse, mae 
 
---- To do ---
-
-
-point-wise loss, hidden activiation added into attention
-
-posterir attention on both training and testing data 
+hidden activiation added into attention
 
 
 initilizaer:
 
    with tf.variable_scope('RNN', initializer=tf.contrib.layers.xavier_initializer()):
       outputs, state = tf.nn.dynamic_rnn(cell, ...)
+      
+      
+normalization the whole or each batch
+
+large regularization
+
+learning rate update in training to handle trapped attention
+
+Tao Lin:
+   overfit in baselines
+   lr re-initiliaze 
+
+individual dropout
+
+skewed target value distribution affects the performance a lot 
+
+
+--- TO DO ---
+ 
+attention value affected by l2 regularization 
+ 
+regularization on attention dropout 
+dropout row/column mask 
+
+point-wise loss
+point-wise loss, loss reweight 
+
+
+For Lin:
+   overfit overcome
+
+Pre-processing:
+   outlier removal 
+   autocorrelation order
+
+Post-processing:
+   attention recording 
+   posterior attention on both training and testing data
+
+Regularization:
+   Batch norm, Layer norm, Batch Normalized Recurrent Neural Networks
+   gradient norm constraints
+   DropConnect
+   
+Attention:
+   attenion on exgoneous variable taking into account the hiddens of the target variable 
+
+Model interpretation:
+   https://phys.org/news/2017-12-climate-conditions-affect-solar-cell.html
+   
 
 Bayesian:
   
@@ -56,16 +101,22 @@ Bayesian:
   https://gist.github.com/tokestermw/a9de2ef498a09747bbf673ddf6ea4843
 
 
-REINFORCE
+REINFORCE:
 
-memory cell
-
+memory mechanism:
+   some improvements on memory moduel in LSTM 
 
 Baseline:
    (NIPS 2016)temporal regularized time series, prophet , python automatic time series forecasting , causalimpact
    prophet 
+   # basic model 
+   # multivariate time series
+   # exponeital weighted moving average 
+   gcForest
 
-normalization the whole or each batch
+Metrics:
+    RMSE mean, standard errors, willios rank test, predicive likelihood 
+    
 
 soft and hart cutoff, impulse function approximate, 
 
@@ -73,32 +124,12 @@ top% accuracy in causal discovery
 
 model saver, training and testing data, attentions 
 
-Batchnorm, Layer norm
-
 Computation time 
 
 Attention mechinism:  time decay: cikm deephawkes paper 
 
-statistical pre-processing:
-  autocorrelation order
-
-some improvements on memory moduel in LSTM 
 
 mixed effect in temporal data: e.g. air pollution data: heterogenous 
-
-
-
-
-# basic model 
-# multivariate time series
-# exponeital weighted moving average 
-
-
-RMSE mean, standard errors, willios rank test, predicive likelihood 
-
-gcForest
-
-large regularization
 
 
 order effect: chosen order, automatic detected order  
