@@ -13,6 +13,9 @@ from tensorflow.python.ops import rnn_cell_impl
 
 from tensorflow.python.ops.rnn_cell_impl import * 
 
+from tensorflow.python.ops import nn_ops
+
+
 # discriminative
 
 
@@ -712,6 +715,7 @@ def _mv_linear_final_speed_up(args,
             bias,
             kernel_initializer, 
             n_var,
+            bool_layer_norm,
             bias_initializer=None):
   """Linear map: sum_i(args[i] * W[i]), where W[i] is a variable.
   Args:
@@ -770,6 +774,7 @@ def _mv_linear_final_speed_up(args,
         initializer=kernel_initializer)
     
     # [OPTIMIZED]
+    #[ V, 1, D]
     weights_IH = vs.get_variable(
         'input_transition',  [n_var, 1, hidden_dim_per_var, input_dim_per_var],
         dtype = dtype,
@@ -782,9 +787,11 @@ def _mv_linear_final_speed_up(args,
         initializer = kernel_initializer)
     
     # reshape input
+    # [B H]
     tmp_input = args[0] 
     blk_input = array_ops.split( tmp_input, num_or_size_splits = n_var, axis = 1 )
     #blk_input = array_ops.stack( blk_input, 2 )
+    # [V B D]
     mv_input = array_ops.expand_dims(blk_input, 2)
     #array_ops.transpose( blk_input, [2, 0, 1] )
     
@@ -799,9 +806,46 @@ def _mv_linear_final_speed_up(args,
     
     tmp_IH = math_ops.reduce_sum( mv_input*weights_IH, 3 )
     tmp_HH = math_ops.reduce_sum( mv_h*weights_HH, 3 )
+    # [V B D]
     
-    tmp_mv = array_ops.split(tmp_IH,  num_or_size_splits = n_var, axis = 0) 
-    tmp_h  = array_ops.split(tmp_HH,  num_or_size_splits = n_var, axis = 0)
+    
+    # --- layer normaization specific for each variable 
+    if bool_layer_norm == True:
+        
+        #[V B D]
+        tmp_new_h = tmp_IH + tmp_HH
+        
+        #[V B 1]
+        tmp_mean = tf.reduce_mean(tmp_new_h, axis = 2, keep_dims = True)
+        tmp_sq  = tf.square(tmp_new_h - tmp_mean)
+        #[V B 1]
+        tmp_std = tf.sqrt( 1.0*tmp_sq/hidden_dim_per_var )
+        
+        #[V 1 D]
+        ln_g = vs.get_variable( 'ln_g', [n_var, 1, hidden_dim_per_var], dtype=dtype, initializer=kernel_initializer)
+        ln_b = vs.get_variable( 'ln_b', [n_var, 1, hidden_dim_per_var], dtype=dtype, initializer=kernel_initializer)
+    
+        #[V B D]
+        normalized_h = ln_g*(tmp_new_h - tmp_mean)/(tmp_std + 1e-5) + ln_b
+        
+        tmp_h  = array_ops.concat( array_ops.split(normalized_h, num_or_size_splits = n_var, axis = 0), 2 )
+        res_new_h = array_ops.squeeze(tmp_h, axis = 0)
+        
+    
+    else:
+        
+        tmp_mv = array_ops.split(tmp_IH, num_or_size_splits = n_var, axis = 0) 
+        tmp_h  = array_ops.split(tmp_HH, num_or_size_splits = n_var, axis = 0)
+    
+        #[OPTIMIZED]
+        res_mv = array_ops.concat(tmp_mv, 2)
+        res_h = array_ops.concat(tmp_h, 2)
+    
+        res_mv = array_ops.squeeze(res_mv, axis = 0)
+        res_h = array_ops.squeeze(res_h, axis = 0)
+        
+        res_new_h = res_mv + res_h
+    
     
     #for k in range(n_var):
     #    res_mv.append( math_ops.matmul( mv_input[k], weights_IH[k] ))
@@ -818,16 +862,9 @@ def _mv_linear_final_speed_up(args,
     #res_mv = array_ops.concat(tmp_mv, 1)
     #res_h = array_ops.concat(tmp_h, 1)
     
-    #[OPTIMIZED]
-    res_mv = array_ops.concat(tmp_mv, 2)
-    res_h = array_ops.concat(tmp_h, 2)
-    
-    res_mv = array_ops.squeeze(res_mv, axis = 0)
-    res_h = array_ops.squeeze(res_h, axis = 0)
-    
     #merge_h = 
     
-    res = array_ops.concat([res_gate, res_mv + res_h], 1)
+    res = array_ops.concat([res_gate, res_new_h], 1)
     
     # --- finish multi-variate cell update ---
     
@@ -845,6 +882,8 @@ def _mv_linear_final_speed_up(args,
     return nn_ops.bias_add(res, biases)
 # i, j, f, o
 
+
+
 class MvLSTMCell(RNNCell):
   """Basic LSTM recurrent network cell.
   The implementation is based on: http://arxiv.org/abs/1409.2329.
@@ -856,7 +895,7 @@ class MvLSTMCell(RNNCell):
   that follows.
   """
 
-  def __init__(self, num_units, n_var, initializer, forget_bias=1.0,
+  def __init__(self, num_units, n_var, initializer, update_keep_prob, bool_layer_norm, forget_bias=1.0,
                state_is_tuple=True, activation=None, reuse=None ):
     """Initialize the basic LSTM cell.
     Args:
@@ -889,6 +928,8 @@ class MvLSTMCell(RNNCell):
     # added by mv_rnn
     self._n_var = n_var
     self._kernel_ini = initializer
+    self._update_keep_prob = update_keep_prob
+    self._bool_layer_norm = bool_layer_norm 
     
 
   @property
@@ -927,7 +968,8 @@ class MvLSTMCell(RNNCell):
         #?
         self._linear = _mv_linear_final_speed_up([inputs, h], 4 * self._num_units, True, \
                                                  kernel_initializer = self._kernel_ini,\
-                                                 n_var = self._n_var)
+                                                 n_var = self._n_var, \
+                                                 bool_layer_norm = self._bool_layer_norm)
         
         #self._linear = _mv_linear([inputs, h], 4 * self._num_units, True)  
         #?  
@@ -938,6 +980,26 @@ class MvLSTMCell(RNNCell):
     i, f, o, j = array_ops.split(
         value= self._linear , num_or_size_splits=4, axis=1)
     
+    
+    # --- Recurrent Dropout without Memory Loss
+    j = nn_ops.dropout( j, keep_prob = self._update_keep_prob )
+    #, seed=self._gen_seed(salt_prefix, i)
+    
+    
+    # --- layer normaization, use informatin from all variables 
+    '''
+    #[B H]
+    tmp_mean = tf.reduce_mean(j, axis = 1,  keep_dims = True)
+    tmp_sq  = tf.square(j - tmp_mean)
+    tmp_std = tf.sqrt( 1.0*tmp_sq/self._num_units )
+    
+    ln_g = vs.get_variable( 'ln_g', [1, self._num_units ], dtype=dtype, initializer=kernel_initializer)
+    
+    ln_b = vs.get_variable( 'ln_b', [1, self._num_units ], dtype=dtype, initializer=kernel_initializer)
+    
+    j = ln_g*(j - tmp_mean)/(tmp_std + 1e-5) + ln_b
+    '''
+    # ---
     
     #?
     #i, j, f, o = array_ops.split(

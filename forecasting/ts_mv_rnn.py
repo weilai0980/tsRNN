@@ -244,6 +244,21 @@ class tsLSTM_seperate():
     
 
 # ---- multi-variate RNN ----
+'''
+RNN Regularization:
+
+   Batch norm, Layer norm, Batch Normalized Recurrent Neural Networks
+   
+   DropConnect
+    
+   Regularization of Deep Neural Networks with Spectral Dropout
+   
+   dropout on input-hidden, hidden-hidden, hidden-output 
+
+   RNN dropout without memory loss
+
+   max norm regularization
+'''
 
 class tsLSTM_mv():
     
@@ -458,10 +473,10 @@ class tsLSTM_mv():
                 
                 # h_mv [V B d]
                 h_mv1, regu_mv_dense1 = mv_dense( h_last_vari, int(n_lstm_dim_layers[-1]/self.N_DATA_DIM), 'intermediate1',\
-                                                self.N_DATA_DIM, interm_var_dim, False )
+                                                self.N_DATA_DIM, interm_var_dim, False, 0.0 )
                 
                 h_mv, regu_mv_dense = mv_dense( h_mv1, interm_var_dim, 'intermediate',\
-                                                self.N_DATA_DIM, 1, True )
+                                                self.N_DATA_DIM, 1, True, 0.0 )
                 
                 # --- derive variate attention 
                 
@@ -506,13 +521,16 @@ class tsLSTM_mv():
                 
                 with tf.variable_scope('lstm'):
                     
-                    mv_cell = MvLSTMCell( n_lstm_dim_layers[0], n_var = n_data_dim ,\
-                                          initializer = tf.contrib.layers.xavier_initializer() )
+                    # ? tf.gather(self.keep_prob,0)
+                    # ? bool_layer_norm
+                    mv_cell = MvLSTMCell(n_lstm_dim_layers[0], n_var = n_data_dim ,\
+                                         initializer = tf.contrib.layers.xavier_initializer(),\
+                                         update_keep_prob = tf.gather(self.keep_prob,0),\
+                                         bool_layer_norm = False)
                     
                     # internal dropout
                     # ? input_keep_prob = tf.gather(self.keep_prob,1)
-                    drop_mv_cell = tf.nn.rnn_cell.DropoutWrapper(mv_cell,\
-                                                                 state_keep_prob = tf.gather(self.keep_prob,1))
+                    drop_mv_cell = tf.nn.rnn_cell.DropoutWrapper(mv_cell, state_keep_prob = tf.gather(self.keep_prob,0))
                     
                     h, state = tf.nn.dynamic_rnn(cell = drop_mv_cell, inputs = self.x, dtype = tf.float32)
                 
@@ -553,25 +571,25 @@ class tsLSTM_mv():
                 # ?
                 interm_var_dim = int(n_lstm_dim_layers[-1]/self.N_DATA_DIM)
                 
-                
                 #dropout
                 h_mv_input = tf.nn.dropout(h_temp, tf.gather(self.keep_prob,0))
                 # h_mv [V B d]
                 h_mv1, regu_mv_dense1 = mv_dense( h_mv_input, 2*int(n_lstm_dim_layers[-1]/self.N_DATA_DIM), 'mv_dense1',\
-                                                  self.N_DATA_DIM, interm_var_dim, False )
+                                                  self.N_DATA_DIM, interm_var_dim, False, 5.0 )
                 
                 #dropout
                 h_mv1 = tf.nn.dropout(h_mv1, tf.gather(self.keep_prob,1))
                 #h_mv, regu_mv_dense = mv_dense( h_mv_input, 2*int(n_lstm_dim_layers[-1]/self.N_DATA_DIM), 'intermediate',\
                 #                                self.N_DATA_DIM, 2, True )
-                h_mv2, regu_mv_dense2 = mv_dense( h_mv1, interm_var_dim, 'mv_dense2', self.N_DATA_DIM, 5, False )
-                
+                h_mv2, regu_mv_dense2 = mv_dense( h_mv1, interm_var_dim, 'mv_dense2', self.N_DATA_DIM, 5, False, 5.0 )
                 
                 #dropout
                 #h_mv2 = tf.nn.dropout(h_mv2, tf.gather(self.keep_prob,1))
                 #h_mv, regu_mv_dense = mv_dense( h_mv_input, 2*int(n_lstm_dim_layers[-1]/self.N_DATA_DIM), 'intermediate',\
                 #                                self.N_DATA_DIM, 2, True )
-                h_mv, regu_mv_dense = mv_dense( h_mv2, 5, 'mv_dense3', self.N_DATA_DIM, 2, True )
+                
+                # outpout layer without max-norm regularization
+                h_mv, regu_mv_dense = mv_dense( h_mv2, 5, 'mv_dense3', self.N_DATA_DIM, 2, True, 0.0 )
                 
                 #[V B 1], [V B 1] 
                 h_mean, h_var = tf.split(h_mv, [1, 1], 2)

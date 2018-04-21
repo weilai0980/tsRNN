@@ -57,6 +57,10 @@ individual dropout
 skewed target value distribution affects the performance a lot 
 
 
+RNN dropout without memory loss
+
+max norm regularization
+
 --- TO DO ---
  
 attention value affected by l2 regularization 
@@ -67,6 +71,9 @@ dropout row/column mask
 point-wise loss
 point-wise loss, loss reweight 
 
+
+Experiments:
+   synthetic data 
 
 For Lin:
    overfit overcome
@@ -80,9 +87,13 @@ Post-processing:
    posterior attention on both training and testing data
 
 Regularization:
+
    Batch norm, Layer norm, Batch Normalized Recurrent Neural Networks
-   gradient norm constraints
+   
    DropConnect
+    
+   Regularization of Deep Neural Networks with Spectral Dropout
+   
    
 Attention:
    attenion on exgoneous variable taking into account the hiddens of the target variable 

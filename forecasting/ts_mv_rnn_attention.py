@@ -772,7 +772,8 @@ def mv_attention_temp( h_list, v_dim, scope, step, step_idx, decay_activation, a
 #tf.squeeze(tf.concat(h_var_list, 2), [0])
     
 
-def mv_dense( h_vari, dim_vari, scope, num_vari, dim_to, bool_activation ):
+# with max-norm regularization 
+def mv_dense( h_vari, dim_vari, scope, num_vari, dim_to, bool_no_activation, max_norm_regul ):
     
     # argu [V B D]
     
@@ -786,12 +787,21 @@ def mv_dense( h_vari, dim_vari, scope, num_vari, dim_to, bool_activation ):
         # [V B D 1]
         h_expand = tf.expand_dims(h_vari, -1)
         
+        if max_norm_regul > 0:
+            clipped = tf.clip_by_norm(w, clip_norm = max_norm_regul, axes = 2)
+            clip_w = tf.assign(w, clipped)
+            
+            tmp_h =  tf.reduce_sum(h_expand * clip_w + b, 2)
+            
+        else:
+            tmp_h =  tf.reduce_sum(h_expand * w + b, 2)
+            
         # [V B D 1] * [V 1 D d] -> [V B d]
         # ?
-        if bool_activation == True:
-            h = tf.reduce_sum(h_expand * w + b, 2)
+        if bool_no_activation == True:
+            h = tmp_h
         else:
-            h = tf.nn.relu( tf.reduce_sum(h_expand * w + b, 2) ) 
+            h = tf.nn.relu( tmp_h ) 
     
     return h, tf.nn.l2_loss(w)    
 

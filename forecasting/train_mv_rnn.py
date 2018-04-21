@@ -101,7 +101,7 @@ para_win_size =  np.shape(xtrain)[1]
     
 para_max_norm = 0.0
 para_is_stateful = False
-para_n_epoch = 80
+para_n_epoch = 100
     
 # if residual layers are used, keep all dimensions the same 
 para_bool_residual = False
@@ -156,7 +156,8 @@ para_l2_att_mv = 0.00001
     # temp loc cutoff:  0.03, 0.00001, 161
     # temp loc vari sep_tar:
 #para_keep_prob_mv = 1.0
-    
+
+#para_bool_layer_norm = True
 
 para_temp_attention_type = 'temp_loc'
     # loc, concate
@@ -242,7 +243,7 @@ def train_nn( l2_dense, dropout_keep_prob, log_file, pre_file ):
             #PIK += "mv.dat"
             
             para_batch_size = para_batch_size_mv
-            para_keep_prob = [0.4, 0.8]
+            para_keep_prob = [0.5, 0.8]
             #dropout_keep_prob
         
         #   clean logs
