@@ -55,12 +55,12 @@ def gbt_n_estimatior(maxnum, X, Y, xtest, ytest, fix_lr, bool_clf ):
     score = []
     cnt = len(xtest)
     
-    for i in range(10,maxnum+1,10):
+    for trial_n in range(10,maxnum+1,10):
         
         if bool_clf == False:
-            clf = GradientBoostingRegressor(n_estimators = i,learning_rate = fix_lr)
+            clf = GradientBoostingRegressor(n_estimators = trial_n,learning_rate = fix_lr)
         else:
-            clf = GradientBoostingClassifier(n_estimators = i,learning_rate = fix_lr)
+            clf = GradientBoostingClassifier(n_estimators = trial_n,learning_rate = fix_lr)
 
         
         clf.fit( X, tmpy )
@@ -68,9 +68,9 @@ def gbt_n_estimatior(maxnum, X, Y, xtest, ytest, fix_lr, bool_clf ):
         pytest = clf.predict(xtest)
 
         if bool_clf == False:
-            score.append((i, sqrt(mean([( pytest[i]-ytest[i] )**2 for i in range(cnt) ]))) )
+            score.append((trial_n, sqrt(mean([( pytest[i]-ytest[i] )**2 for i in range(cnt) ]))) )
         else:
-            score.append((i, clf.score(xtest, ytest) ))
+            score.append((trial_n, clf.score(xtest, ytest) ))
     
     return min(score, key = lambda x: x[1]), score
 
@@ -82,26 +82,25 @@ def gbt_tree_para( X, Y, xtest, ytest, depth_range, fix_lr, fix_n_est, bool_clf 
     
     cnt = len(xtest)
     
-    for i in depth_range:
+    for trial_depth in depth_range:
         
         if bool_clf == False:
             clf = GradientBoostingRegressor(n_estimators = fix_n_est,learning_rate = fix_lr,\
-                                        max_depth = i )
+                                        max_depth = trial_depth )
         else:
             clf = GradientBoostingClassifier(n_estimators = fix_n_est,learning_rate = fix_lr,\
-                                        max_depth = i )
+                                        max_depth = trial_depth )
             
         clf.fit( X, tmpy )
         
         pytest = clf.predict(xtest)
         
         if bool_clf == False:
-            score.append((i, sqrt(mean([( pytest[i]-ytest[i] )**2 for i in range(cnt) ]))) )
+            score.append((trial_depth, sqrt(mean([( pytest[i]-ytest[i] )**2 for i in range(cnt) ]))) )
         
         else:
-            score.append((i, clf.score(xtest, ytest) ))
+            score.append((trial_depth, clf.score(xtest, ytest) ))
         
-    
     return min(score, key = lambda x: x[1]), score
         
     
@@ -236,7 +235,7 @@ def xgt_l2( fix_lr, fix_depth, fix_round, xtrain, ytrain, xtest, ytest, l2_range
 #  def xgt_l1 for very high dimensional features    
     
     
-# Random forest
+# ---- Random forest
 
 # max_features:
 # n_estimators
@@ -262,9 +261,9 @@ def rf_n_depth_estimatior(maxnum, maxdep, X, Y, xtest, ytest, bool_clf ):
             pytest = clf.predict(xtest)
             
             if bool_clf == False:
-                score.append( (n_trial,dep_trial, sqrt(mean([( pytest[i]-ytest[i] )**2 for i in range(cnt) ]))) )
+                score.append( (n_trial, dep_trial, sqrt(mean([(pytest[i]-ytest[i])**2 for i in range(cnt) ]))) )
             else:
-                score.append( (n_trial,dep_trial, clf.score(xtest, ytest) ))
+                score.append( (n_trial, dep_trial, clf.score(xtest, ytest)) )
             
 #            score.append(\
 #            (n_trial, dep_trial, sqrt(mean([( pytest[i]-ytest[i] )**2 for i in range(cnt) ]))) )
@@ -272,15 +271,13 @@ def rf_n_depth_estimatior(maxnum, maxdep, X, Y, xtest, ytest, bool_clf ):
     return min(score, key = lambda x: x[2]), score
 
 
-
-# ElasticNet
-
+# ---- ElasticNet
 from sklearn.linear_model import ElasticNet
 
 def enet_alpha_l1(alpha_range, l1_range, xtrain, ytrain, xtest, ytest):
     
     print np.shape(ytest)
-
+    
     res = []
     for i in alpha_range:
         for j in l1_range:
@@ -290,6 +287,6 @@ def enet_alpha_l1(alpha_range, l1_range, xtrain, ytrain, xtest, ytest):
             
             y_pred = enet.predict( xtest )
             
-            res.append( (i,j, sqrt(mean([(ytest[i]-ytmp)**2 for i,ytmp in enumerate(y_pred)])) ) )
+            res.append( (i,j, sqrt(mean([(ytest[k]-ytmp)**2 for k, ytmp in enumerate(y_pred)])) ) )
     
     return min(res, key = lambda x:x[2]), res

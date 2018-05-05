@@ -59,9 +59,26 @@ skewed target value distribution affects the performance a lot
 
 RNN dropout without memory loss
 
-max norm regularization
+max norm regularization + dropout
+
+Layer norm: shared or multi-variate
+
+
+--- Tuning tricks ---
+
+Observe data to determine window size
+
+Max-norm constraints and dropout together  
+
+divergence point of training and validation errors as the training stopping point
+
+Training slow down:  learning rate, max norm, 
+
+observe tradeoff between representability and generalization ability when hyper-parameter changes 
 
 --- TO DO ---
+ 
+LSTM with various regularization
  
 attention value affected by l2 regularization 
  
@@ -70,13 +87,18 @@ dropout row/column mask
 
 point-wise loss
 point-wise loss, loss reweight 
+                                                   
 
+Related work:
+   ARX model 
 
 Experiments:
    synthetic data 
+   https://archive.ics.uci.edu/ml/datasets/SML2010
 
 For Lin:
    overfit overcome
+   DUAL data no data at t 
 
 Pre-processing:
    outlier removal 
@@ -86,21 +108,48 @@ Post-processing:
    attention recording 
    posterior attention on both training and testing data
 
-Regularization:
 
-   Batch norm, Layer norm, Batch Normalized Recurrent Neural Networks
+Baseline:
+   (NIPS 2016)temporal regularized time series, prophet , python automatic time series forecasting , causalimpact
+   prophet 
+   # basic model 
+   # multivariate time series
+   # exponeital weighted moving average 
+   gcForest
+   An Interpretable and Sparse Neural Network Model for Nonlinear Granger Causality Discovery
+   KDD paper MIMC
    
+   structural time series
+   
+   
+Regularization:
+   
+   Maxout activiation
+
    DropConnect
     
    Regularization of Deep Neural Networks with Spectral Dropout
    
+   Zoneout: regularizing RNNs by randomly preserving hidden activations
    
+   Batch norm
+   Batch Normalized Recurrent Neural Network
+   Recurrent batch normalization
+   
+   dense regularization on max-norm constrained weights 
+   dropout before output layer
+   
+   max-norm on weight in LSTM
+
+Multi-layer MV-LSTM
+
+
 Attention:
    attenion on exgoneous variable taking into account the hiddens of the target variable 
 
 Model interpretation:
    https://phys.org/news/2017-12-climate-conditions-affect-solar-cell.html
-   
+    
 
 Bayesian:
   
@@ -114,16 +163,10 @@ Bayesian:
 
 REINFORCE:
 
-memory mechanism:
+Memory mechanism:
    some improvements on memory moduel in LSTM 
 
-Baseline:
-   (NIPS 2016)temporal regularized time series, prophet , python automatic time series forecasting , causalimpact
-   prophet 
-   # basic model 
-   # multivariate time series
-   # exponeital weighted moving average 
-   gcForest
+
 
 Metrics:
     RMSE mean, standard errors, willios rank test, predicive likelihood 

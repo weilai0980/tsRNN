@@ -241,6 +241,7 @@ def build_training_testing_data_4learning( dta_df, target_col, indep_col, \
 # multiple independent and one target series
     else:
         dta_mat = dta_df[ indep_col ][ para_train_range[0]:para_train_range[1] ].as_matrix()
+        
         x_all, y_all = instance_extraction_multiple_one( \
                         list(dta_df[ target_col ][ para_train_range[0]:para_train_range[1] ]),\
                                                  list(dta_mat),para_win_size, is_stateful )
@@ -334,8 +335,8 @@ def prepare_train_test_RETAIN(files_list, dump_path, dump_prefix):
         xtrain = np.reshape( xtrain, tr_shape )
         xtest  = np.reshape( xtest,  ts_shape )
 
-    ytrain = np.expand_dims( ytrain, 1 ) 
-    ytest  = np.expand_dims( ytest,  1 )
+    #ytrain = np.expand_dims( ytrain, 1 ) 
+    #ytest  = np.expand_dims( ytest,  1 )
         
     print np.shape(xtrain), np.shape(ytrain), np.shape(xtest), np.shape(ytest)
     
@@ -347,20 +348,35 @@ def prepare_train_test_RETAIN(files_list, dump_path, dump_prefix):
     
     
 # ---- Dual-RNN baseline in IJCAI paper ---- 
-def prepare_train_test_DualRNN(dta_df, target_col, feature_cols, train_range, test_range, dump_path, dump_prefix,\
-                              win_size, bool_stateful, bool_log_y):
+#def prepare_train_test_DualRNN(dta_df, target_col, feature_cols, train_range, test_range, dump_path, dump_prefix,\
+#                              win_size, bool_stateful, bool_log_y):
+
+def prepare_train_test_DualRNN( xtr, ytr, xts, yts, dump_path, dump_prefix,\
+                                win_size, bool_stateful, bool_log_y):
     
-    dta_mat = dta_df[ feature_cols ][ train_range[0]:train_range[1] ].as_matrix()
+    #dta_mat = dta_df[ feature_cols ][ train_range[0]:train_range[1] ].as_matrix()
 
-    x_train, yhis_train, y_train = instance_extraction_multiple_one_separate_target( \
-                        list(dta_df[ target_col ][ train_range[0]:train_range[1] ]),\
-                                                 list(dta_mat), win_size, bool_stateful )
+    #x_train, yhis_train, y_train = instance_extraction_multiple_one_separate_target( \
+    #                    list(dta_df[ target_col ][ train_range[0]:train_range[1] ]),\
+    #                                             list(dta_mat), win_size, bool_stateful )
 
-    dta_mat = dta_df[ feature_cols ][ test_range[0]:test_range[1] ].as_matrix()
+    #dta_mat = dta_df[ feature_cols ][ test_range[0]:test_range[1] ].as_matrix()
 
-    x_test, yhis_test, y_test = instance_extraction_multiple_one_separate_target( \
-                        list(dta_df[ target_col ][ test_range[0]:test_range[1] ]),\
-                                                 list(dta_mat), win_size, bool_stateful )
+    #x_test, yhis_test, y_test = instance_extraction_multiple_one_separate_target( \
+    #                    list(dta_df[ target_col ][ test_range[0]:test_range[1] ]),\
+    #                                             list(dta_mat), win_size, bool_stateful )
+    
+    tmpshape = np.shape(xtr)[2]
+    
+    x_train, yhis = np.split(xtr, [tmpshape-1,], axis = 2)
+    yhis_train = np.squeeze(yhis, [2])
+    
+    x_test, yhis = np.split(xts, [tmpshape-1,], axis = 2)
+    yhis_test = np.squeeze(yhis, [2])
+    
+    y_train = ytr
+    y_test = yts
+    
 
     # -- normalization
     # X
