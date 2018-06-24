@@ -46,8 +46,9 @@ class cLSTM_causal():
         
         # begin to build the graph
         self.sess = session
+        
+        # feed into LSTM
         h, _ = plain_lstm( self.x, n_lstm_dim_layers, 'lstm', self.keep_prob )
-
         
         print ' --- cLSTM RNN using no attention:  '
             

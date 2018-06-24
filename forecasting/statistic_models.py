@@ -317,6 +317,7 @@ for ar_order in range(3, 5):
         
         errors.append( [ar_order, ma_order, rmse, mae, mape] )
 
+# [ar_order, ma_order, rmse, mae, mape]       
 error_min = min(errors, key = lambda x: x[2])
 print "--- ARIMAX: ", error_min
 

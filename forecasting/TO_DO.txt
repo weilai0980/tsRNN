@@ -64,6 +64,16 @@ max norm regularization + dropout
 Layer norm: shared or multi-variate
 
 
+For Lin:
+   overfit overcome
+   DUAL data no data at t 
+
+
+Related work:
+
+   ARX model 
+   
+
 --- Tuning tricks ---
 
 Observe data to determine window size
@@ -76,6 +86,9 @@ Training slow down:  learning rate, max norm,
 
 observe tradeoff between representability and generalization ability when hyper-parameter changes 
 
+large network -> high learning rate 
+
+
 --- TO DO ---
  
 LSTM with various regularization
@@ -87,18 +100,34 @@ dropout row/column mask
 
 point-wise loss
 point-wise loss, loss reweight 
-                                                   
 
-Related work:
-   ARX model 
+
+Reference:
+   feature importance
+
+Paper write-up:
+   reference check
+   
 
 Experiments:
+
    synthetic data 
    https://archive.ics.uci.edu/ml/datasets/SML2010
+   
+   layer normalization 
+   Stack mv lstm
+   
+   mv_lstm: hidden combination 
+   
+   predition sample
+   
+   
+   multi-step ahead prediction
+   
+   prior, poster, negative/positive weights over epoches
+   
+   the variable importance under different window sizes 
 
-For Lin:
-   overfit overcome
-   DUAL data no data at t 
 
 Pre-processing:
    outlier removal 
@@ -107,9 +136,11 @@ Pre-processing:
 Post-processing:
    attention recording 
    posterior attention on both training and testing data
+   scale-free posterior inference
 
 
 Baseline:
+   
    (NIPS 2016)temporal regularized time series, prophet , python automatic time series forecasting , causalimpact
    prophet 
    # basic model 
@@ -120,6 +151,12 @@ Baseline:
    KDD paper MIMC
    
    structural time series
+   
+   Time series forecasting using a hybrid ARIMA and neural network model
+   
+   modeling long and short pattern in time series (sigir paper)
+   
+   AutoTS on R
    
    
 Regularization:
@@ -139,13 +176,22 @@ Regularization:
    dense regularization on max-norm constrained weights 
    dropout before output layer
    
-   max-norm on weight in LSTM
+   max-norm on weight of LSTM
+   
+   causal regularization 
+   
 
 Multi-layer MV-LSTM
 
+Training and tesing importance value comparison, stablize variable importance across epoches 
+
 
 Attention:
+
    attenion on exgoneous variable taking into account the hiddens of the target variable 
+   
+   sparse attention on temporal 
+   
 
 Model interpretation:
    https://phys.org/news/2017-12-climate-conditions-affect-solar-cell.html
@@ -161,7 +207,6 @@ Bayesian:
   https://gist.github.com/tokestermw/a9de2ef498a09747bbf673ddf6ea4843
 
 
-REINFORCE:
 
 Memory mechanism:
    some improvements on memory moduel in LSTM 
