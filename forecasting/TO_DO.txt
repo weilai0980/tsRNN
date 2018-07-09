@@ -128,6 +128,10 @@ Experiments:
    
    the variable importance under different window sizes 
 
+   logs:
+      1. temporal attention, variable attention, importance
+      2. weight on the output layer
+
 
 Pre-processing:
    outlier removal 
@@ -136,7 +140,11 @@ Pre-processing:
 Post-processing:
    attention recording 
    posterior attention on both training and testing data
-   scale-free posterior inference
+   scale-free posterior inference 
+   
+   select top-k variables, run prediction again
+   identify significance different in prior and poster variable attention 
+   
 
 
 Baseline:
@@ -148,6 +156,7 @@ Baseline:
    # exponeital weighted moving average 
    gcForest
    An Interpretable and Sparse Neural Network Model for Nonlinear Granger Causality Discovery
+   
    KDD paper MIMC
    
    structural time series
@@ -214,7 +223,8 @@ Memory mechanism:
 
 
 Metrics:
-    RMSE mean, standard errors, willios rank test, predicive likelihood 
+    RMSE, MAE, MAPE 
+    standard errors, willios rank test, predicive likelihood 
     
 
 soft and hart cutoff, impulse function approximate, 
