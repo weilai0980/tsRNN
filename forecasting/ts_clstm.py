@@ -10,7 +10,7 @@ from tensorflow.python.ops import rnn_cell_impl
 from tensorflow.python.ops.rnn_cell_impl import *
 
 # local 
-from custom_rnn_cell import *
+from mv_rnn_cell import *
 from utils_libs import *
 from ts_mv_rnn_attention import *
 
@@ -50,7 +50,7 @@ class cLSTM_causal():
         # feed into LSTM
         h, _ = plain_lstm( self.x, n_lstm_dim_layers, 'lstm', self.keep_prob )
         
-        print ' --- cLSTM RNN using no attention:  '
+        print(' --- cLSTM RNN using no attention:  ')
             
         # obtain the last hidden state
         tmp_hiddens = tf.transpose( h, [1,0,2] )

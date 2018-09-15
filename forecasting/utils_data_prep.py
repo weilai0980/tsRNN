@@ -11,17 +11,96 @@ import random
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
 
+# local packages
 import utils_libs
+from utils_causal import *
 
+# ---- time series data pre-processing ----
+
+#  time series modeling process
+
+# 1. stationary test
+#    trend model:
+#         Aggregation - taking average for a time period like monthly/weekly averages
+#         Smoothing - taking rolling averages
+#         Polynomial Fitting - fit a regression model
+#    seasonality model:
+#         differencing
+#         model fitting
+# 2. stationalize time series
+#       detrend
+#       remove seasonality
+# 3. model the stationary part of time series        
+
+#    seasonal-ARIMA 
+
+# 4. perform prediction 
+
+def multivariate_ts_smooth(multivari_ts_df, win_size):
     
-# ---- data pre-processing ----
+    res_ts = pd.DataFrame( )
+    
+    for i in multivari_ts_df.columns:
+        
+        tmp_ts = list(multivari_ts_df[i])
+        tmp_len = len(tmp_ts)
+        
+        for j in range(tmp_len):
+            
+            context_l = tmp_ts[max(0, j - win_size) : j]
+            context_r = tmp_ts[min(tmp_len-1, j+1) : min(tmp_len, j + win_size)]
+            
+            context = context_l + context_r 
+            
+            context_mean = mean(context)
+            context_std = std(context)
+            
+            if tmp_ts[j] > context_mean + context_std*3.0 or tmp_ts[j] < context_mean - context_std*3.0:
+                
+                tmp_ts[j] = median(context)
+        
+        res_ts[i] = pd.Series(tmp_ts)
+        
+    return res_ts
+
+
+def multivariate_ts_stationarize(multivari_ts_df):
+    
+    post_len = []
+    post_dta = []
+    
+    num_ts = multivari_ts_df.shape[1]
+    len_ts = multivari_ts_df.shape[0]
+    
+    for i in multivari_ts_df.columns:
+            
+        tmpts = list(multivari_ts_df[i])        
+        
+        tmp_stat_ts = ts_stationarize_diff( tmpts )
+        
+        print("stationary prepro: ", tmp_stat_ts[0], tmp_stat_ts[1], len(tmp_stat_ts[2]), '\n')
+        
+        post_len.append( len(tmp_stat_ts[2]) )
+        post_dta.append( tmp_stat_ts[2] )
+    
+    res_ts = pd.DataFrame( )
+    
+    min_len = min(post_len)
+    for idx, col_str in enumerate(multivari_ts_df.columns):
+        
+        res_ts[col_str] = pd.Series(post_dta[idx][post_len[idx]-min_len : post_len[idx]] )
+    
+    return res_ts
+
+
+# ---- feature-target extraction ----
 
 # for both univeriate and multi-variate cases
 def instance_extraction( list_ts, win_size, is_stateful ):
     
     n = len(list_ts)
     if n < win_size:
-        print "ERROR: SIZE"
+        print("\n ERROR: SIZE \n")
         return
     
     listX = []
@@ -46,7 +125,7 @@ def instance_extraction_multiple_one( list_target, list_indepen, win_size, is_st
     
     n = len(list_target)
     if n < win_size:
-        print "ERROR: SIZE"
+        print("\n ERROR: SIZE \n")
         return
     
     listX = []
@@ -55,21 +134,24 @@ def instance_extraction_multiple_one( list_target, list_indepen, win_size, is_st
     if is_stateful:
         
         for i in range(win_size, n, win_size):
-            tmp  = list_indepen[i-win_size:i]
-            tmp1 = np.expand_dims(list_target[i-win_size:i], axis=1) 
-            #tmp1 = np.reshape( list_target[i-win_size:i], [-1,1] )
-            tmp  = np.append( tmp, tmp1 , axis = 1 )
+            
+            tmp  = list_indepen[i - win_size:i]
+            tmp1 = np.expand_dims(list_target[i - win_size:i], axis = 1) 
+            tmp  = np.append(tmp, tmp1 , axis = 1)
                     
-            listX.append( tmp )
-            listY.append( list_target[i] )
+            listX.append(tmp)
+            listY.append(list_target[i])
     else:
+        
         for i in range(win_size, n):
-            tmp  = list_indepen[i-win_size:i]
-            tmp1 = np.expand_dims(list_target[i-win_size:i], axis=1)
-            tmp  = np.append( tmp, tmp1 , axis = 1 )
+            
+            tmp  = list_indepen[i - win_size:i]
+            tmp1 = np.expand_dims(list_target[i - win_size:i], axis = 1)
+            # external + autoregressive 
+            tmp  = np.append(tmp, tmp1, axis = 1)
                     
-            listX.append( tmp )
-            listY.append( list_target[i] )
+            listX.append(tmp)
+            listY.append(list_target[i])
         
     return listX, listY
 
@@ -77,7 +159,7 @@ def instance_extraction_multiple_one_separate_target( list_target, list_indepen,
     
     n = len(list_target)
     if n < win_size:
-        print "ERROR: SIZE"
+        print("\n ERROR: SIZE \n")
         return
     
     listX = []
@@ -187,10 +269,10 @@ def prepare_train_test_data(bool_add_trend, files_list):
     
     PARA_ADD_TREND = bool_add_trend
                       
-    xtr = np.load(files_list[0])
-    xts = np.load(files_list[1])
-    ytr = np.load(files_list[2])
-    yts = np.load(files_list[3]) 
+    xtr = np.load(files_list[0], encoding='latin1')
+    xts = np.load(files_list[1], encoding='latin1')
+    ytr = np.load(files_list[2], encoding='latin1')
+    yts = np.load(files_list[3], encoding='latin1') 
                     
     cnt_tr = len(xtr)
     cnt_ts = len(xts)   
@@ -227,9 +309,9 @@ def prepare_train_test_data(bool_add_trend, files_list):
 
 
 
-def build_training_testing_data_4learning( dta_df, target_col, indep_col, \
-                                para_uni_variate, para_train_test_split, para_win_size, \
-                                para_train_range, para_test_range, is_stateful):
+def build_training_testing_data_4learning(dta_df, target_col, indep_col, 
+                                          para_uni_variate, para_train_test_split, para_win_size, \
+                                          para_train_range, para_test_range, is_stateful):
         
 # univariate
     if para_uni_variate == True:
@@ -318,7 +400,7 @@ def build_training_testing_data_4statistics( dta_df, target_col, indep_col, \
 
 
 # ---- RETAIN baseline in NIPS paper ----   
-def prepare_train_test_RETAIN(files_list, dump_path, dump_prefix):
+def prepare_train_test_RETAIN(files_list, dump_path, dump_prefix, dump_postfix):
     
     # normalize features
     xtrain, ytrain, xtest, ytest, tr_shape, ts_shape = prepare_train_test_data(False, files_list)
@@ -338,13 +420,13 @@ def prepare_train_test_RETAIN(files_list, dump_path, dump_prefix):
     #ytrain = np.expand_dims( ytrain, 1 ) 
     #ytest  = np.expand_dims( ytest,  1 )
         
-    print np.shape(xtrain), np.shape(ytrain), np.shape(xtest), np.shape(ytest)
+    print(np.shape(xtrain), np.shape(ytrain), np.shape(xtest), np.shape(ytest))
     
-    xtrain.dump(dump_path + dump_prefix + "_xtrain_nips.dat")
-    xtest.dump(dump_path + dump_prefix + "_xtest_nips.dat")
+    xtrain.dump(dump_path + dump_prefix + "_xtrain_" + dump_postfix + ".dat")
+    xtest.dump(dump_path + dump_prefix + "_xtest_" + dump_postfix + ".dat")
     
-    ytrain.dump(dump_path + dump_prefix + "_ytrain_nips.dat")
-    ytest.dump(dump_path + dump_prefix + "_ytest_nips.dat")
+    ytrain.dump(dump_path + dump_prefix + "_ytrain_" + dump_postfix + ".dat")
+    ytest.dump(dump_path + dump_prefix + "_ytest_" + dump_postfix + ".dat")
     
     
 # ---- Dual-RNN baseline in IJCAI paper ---- 
@@ -411,8 +493,8 @@ def prepare_train_test_DualRNN( xtr, ytr, xts, yts, dump_path, dump_prefix,\
         ytrain = np.asarray(y_train)
         ytest = np.asarray(y_test)
 
-    print np.shape(xtrain), np.shape(yhtrain), np.shape(ytrain)
-    print np.shape(xtest), np.shape(yhtest), np.shape(ytest)
+    print(np.shape(xtrain), np.shape(yhtrain), np.shape(ytrain))
+    print(np.shape(xtest), np.shape(yhtest), np.shape(ytest))
     
     xtrain.dump(dump_path + dump_prefix + "_xtrain_dual.dat")
     ytrain.dump(dump_path + dump_prefix + "_ytrain_dual.dat")
@@ -497,9 +579,6 @@ def prepare_lastPoint_train_test_data( steps, bool_add_trend, xtrain_df, xtest_d
     ytest  = ytest_df.as_matrix()
         
     return xtrain, ytrain, xtest, ytest
-
-
-
 
 def flatten_features(dta):
     tmplen = np.shape(dta)[0]

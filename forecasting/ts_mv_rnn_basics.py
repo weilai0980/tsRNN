@@ -8,7 +8,7 @@ from tensorflow.python.ops import rnn_cell_impl
 from tensorflow.python.ops.rnn_cell_impl import *
 
 # local 
-from custom_rnn_cell import *
+from mv_rnn_cell import *
 from utils_libs import *
 
 
@@ -76,7 +76,8 @@ def mv_dense( h_vari, dim_vari, scope, num_vari, dim_to, bool_no_activation, max
             h = tmp_h
         else:
             h = tf.nn.relu( tmp_h ) 
-            
+        
+        # regularization type
         if regul_type == 'l2':
             return h, tf.nn.l2_loss(w) 
         

@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd 
 import scipy as sp
 
-import pylab
+#import pylab
 
 from pandas import *
 from numpy import *
@@ -17,15 +17,7 @@ import sys
 # machine leanring packages
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
-from sklearn.model_selection import cross_val_score
-from sklearn import tree
-from sklearn.ensemble import GradientBoostingRegressor
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import precision_recall_fscore_support as score
-from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
-
-import xgboost as xgb
 
 # statiscal models
 import statsmodels as sm
@@ -44,10 +36,10 @@ from utils_data_prep import *
 
 def stationary_test( arr ):
     # null one unit-root
-    print 'ADF test:\n', sm.tsa.stattools.adfuller(arr, regression='c', maxlag=None, store=False, autolag='AIC')
+    print('ADF test:\n', sm.tsa.stattools.adfuller(arr, regression='c', maxlag=None, store=False, autolag='AIC'))
     # kpss
     # null is stationarity, no deterministic trend component
-    print 'KPSS test:\n', sm.tsa.stattools.kpss(arr, regression='c', lags=None, store=False)
+    print('KPSS test:\n', sm.tsa.stattools.kpss(arr, regression='c', lags=None, store=False))
 
 
 # Automatic causality discovery
@@ -91,7 +83,7 @@ def multi_ts_stationarize( dta ):
         tmpts = [ dta[j][i] for j in range(len_ts) ]
         tmpts = ts_stationarize_diff( tmpts )
         
-        print "stationary prepro: ", tmpts[0], tmpts[1], '\n'
+        print("stationary prepro: ", tmpts[0], tmpts[1], '\n')
         
         post_len.append( len(tmpts[2]) )
         post_dta.append( tmpts[2] )
@@ -109,7 +101,7 @@ def causality_VAR(post_ts, max_order):
     model =  VAR(post_ts)
     best_lag = model.select_order(max_order, verbose= False)
     
-    print 'best lag: ', best_lag
+    print('best lag: ', best_lag)
     
     result = model.fit(best_lag['aic'])
     

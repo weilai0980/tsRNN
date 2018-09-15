@@ -1,9 +1,9 @@
 import numpy as np   
-import pandas as pd 
+#import pandas as pd 
 
-from pandas import *
-from numpy import *
-from scipy import *
+#from pandas import *
+#from numpy import *
+#from scipy import *
  
 import random
 
@@ -23,8 +23,35 @@ from sklearn import preprocessing
 import xgboost as xgb
 
 #from utils_keras import *
-from utils_data_prep import *
+#from utils_data_prep import *
 
+
+# ---- Utility functions
+
+def mape(y, yhat):
+    
+    tmp_list = []
+    
+    for idx, val in enumerate(y):
+        
+        if abs(val) > 0.00001:
+            tmp_list.append(abs(1.0*(yhat[idx]-val)/val))
+    
+    return np.mean(tmp_list)
+
+def mae(y, yhat):
+    
+    tmp_list = []
+    
+    for idx, val in enumerate(y):
+        tmp_list.append(abs(yhat[idx]-val))
+    
+    return np.mean(tmp_list)
+    
+def rmse(y, yhat):
+    
+    return np.sqrt(np.mean([(y[i] - yhat[i])**2 for i in range(len(yhat))]))
+    
 
 # GBT
 
@@ -47,9 +74,7 @@ from utils_data_prep import *
 
 #----Order of tuning: max_depth and num_samples_split, min_samples_leaf, max_features
 
-
-
-def gbt_n_estimatior(maxnum, X, Y, xtest, ytest, fix_lr, bool_clf, error_type ):
+def gbt_n_estimatior(maxnum, X, Y, xtest, ytest, fix_lr, bool_clf ):
     
     tmpy = Y.reshape( (len(Y),) )
     score = []
@@ -62,27 +87,22 @@ def gbt_n_estimatior(maxnum, X, Y, xtest, ytest, fix_lr, bool_clf, error_type ):
         else:
             clf = GradientBoostingClassifier(n_estimators = trial_n,learning_rate = fix_lr)
 
-        
         clf.fit( X, tmpy )
         
         pytest = clf.predict(xtest)
 
         if bool_clf == False:
             
-            if error_type == 'rmse':
-                score.append((trial_n, clf.score(xtest, ytest)))
+            score.append((trial_n, rmse(ytest, pytest), mae(ytest, pytest), mape(ytest, pytest)))
                 
-            elif error_type == 'mae':
-                score.append((trial_n, mean([abs(ytest[k]-ytmp) for k, ytmp in enumerate(pytest)]) ))
-            
         else:
-            score.append((trial_n, sqrt(mean([( pytest[i]-ytest[i] )**2 for i in range(cnt) ]))) )
+            score.append((trial_n, np.sqrt(np.mean([( pytest[i]-ytest[i] )**2 for i in range(cnt) ]))) )
             
     
     return min(score, key = lambda x: x[1]), score
 
 
-def gbt_tree_para( X, Y, xtest, ytest, depth_range, fix_lr, fix_n_est, bool_clf, error_type ):
+def gbt_tree_para( X, Y, xtest, ytest, depth_range, fix_lr, fix_n_est, bool_clf ):
     
     tmpy = Y.reshape( (len(Y),) )
     score = []
@@ -92,11 +112,9 @@ def gbt_tree_para( X, Y, xtest, ytest, depth_range, fix_lr, fix_n_est, bool_clf,
     for trial_depth in depth_range:
         
         if bool_clf == False:
-            clf = GradientBoostingRegressor(n_estimators = fix_n_est,learning_rate = fix_lr,\
-                                        max_depth = trial_depth )
+            clf = GradientBoostingRegressor(n_estimators = fix_n_est,learning_rate = fix_lr, max_depth = trial_depth )
         else:
-            clf = GradientBoostingClassifier(n_estimators = fix_n_est,learning_rate = fix_lr,\
-                                        max_depth = trial_depth )
+            clf = GradientBoostingClassifier(n_estimators = fix_n_est,learning_rate = fix_lr, max_depth = trial_depth )
             
         clf.fit( X, tmpy )
         
@@ -104,19 +122,52 @@ def gbt_tree_para( X, Y, xtest, ytest, depth_range, fix_lr, fix_n_est, bool_clf,
         
         if bool_clf == False:
             
-            if error_type == 'rmse':
-                score.append((trial_depth, sqrt(mean([( pytest[i]-ytest[i] )**2 for i in range(cnt) ]))) )
-                
-            elif error_type == 'mae':
-                score.append((trial_depth, mean([abs(ytest[k]-ytmp) for k, ytmp in enumerate(pytest)]) ))
+            score.append((trial_depth, rmse(ytest, pytest), mae(ytest, pytest), mape(ytest, pytest)))
             
         else:
             score.append((trial_depth, clf.score(xtest, ytest)))
             
         
     return min(score, key = lambda x: x[1]), score
-        
     
+
+# ---- Random forest
+
+# max_features:
+# n_estimators
+# max_depth
+
+def rf_n_depth_estimatior(maxnum, maxdep, X, Y, xtest, ytest, bool_clf):
+        
+    score = []
+    
+    cnt = len(xtest)
+        
+    for n_trial in range(10, maxnum + 1, 10):
+        for dep_trial in range(2, maxdep + 1):
+            
+            if bool_clf == True:
+                clf = RandomForestClassifier(n_estimators = n_trial, max_depth = dep_trial, max_features = "sqrt")
+            else:
+                clf = RandomForestRegressor(n_estimators = n_trial, max_depth = dep_trial, max_features = "sqrt")
+            
+            clf.fit( X, Y )
+        
+            pytest = clf.predict(xtest)
+            
+            if bool_clf == False:
+                
+                score.append((n_trial, dep_trial, rmse(ytest, pytest), mae(ytest, pytest), mape(ytest, pytest) ))
+                
+            else:
+                score.append((trial_n, clf.score(xtest, ytest) ))
+                
+                #score.append( (n_trial, dep_trial, clf.score(xtest, ytest)) )
+#            score.append(\
+#            (n_trial, dep_trial, sqrt(mean([( pytest[i]-ytest[i] )**2 for i in range(cnt) ]))) )
+    
+    return min(score, key = lambda x: x[2]), score
+
 # XGBoosted
 
 # https://www.analyticsvidhya.com/blog/2016/03/
@@ -145,7 +196,7 @@ def gbt_tree_para( X, Y, xtest, ytest, depth_range, fix_lr, fix_n_est, bool_clf,
 # Learning Task Parameters
 
 
-def xgt_n_depth( lr, max_depth, max_round, xtrain, ytrain, xtest, ytest, bool_clf, num_class, error_type ):
+def xgt_n_depth( lr, max_depth, max_round, xtrain, ytrain, xtest, ytest, bool_clf, num_class ):
     
     score = []
     xg_train = xgb.DMatrix(xtrain, label = ytrain)
@@ -187,20 +238,12 @@ def xgt_n_depth( lr, max_depth, max_round, xtrain, ytrain, xtest, ytest, bool_cl
                 tmp_accur = tmpcnt*1.0/tmplen
                     
             else:
-                
-                if error_type == 'rmse':
-                    tmp_accur = sqrt(mean([(pytest[i] - ytest[i])**2 for i in range(len(ytest))]))
-                    
-                elif error_type == 'mae':
-                    tmp_accur = mean([abs(pytest[i[0]] - i[1]) for i in enumerate(ytest)]) 
-                
-            
-            score.append( (depth_trial, num_round_trial, tmp_accur) )
+                score.append((depth_trial, num_round_trial, rmse(ytest, pytest), mae(ytest, pytest), mape(ytest, pytest)))
             
     return min(score, key = lambda x: x[2]), score
 
 
-def xgt_l2( fix_lr, fix_depth, fix_round, xtrain, ytrain, xtest, ytest, l2_range, bool_clf, num_class, error_type ):
+def xgt_l2( fix_lr, fix_depth, fix_round, xtrain, ytrain, xtest, ytest, l2_range, bool_clf, num_class ):
     
     score = []
     xg_train = xgb.DMatrix(xtrain, label = ytrain)
@@ -235,6 +278,7 @@ def xgt_l2( fix_lr, fix_depth, fix_round, xtrain, ytrain, xtest, ytest, l2_range
         pytest = bst.predict( xg_test )
         
         if bool_clf == True:
+            
             tmplen = len(ytest)
             tmpcnt = 0.0
             for i in range(tmplen):
@@ -245,69 +289,15 @@ def xgt_l2( fix_lr, fix_depth, fix_round, xtrain, ytrain, xtest, ytest, l2_range
                     
         else:
             
-            if error_type == 'rmse':
-                tmp_accur = sqrt(mean([(pytest[i] - ytest[i])**2 for i in range(len(ytest))]))
-                    
-            elif error_type == 'mae':
-                tmp_accur = mean([abs(pytest[i[0]] - i[1]) for i in enumerate(ytest)]) 
-            
-            #tmp_accur = sqrt(mean( [(pred[i] - ytest[i])**2 for i in range(len(ytest))] )) 
-                    
-        score.append( (l2_trial, tmp_accur) )
+            score.append((l2_trial, rmse(ytest, pytest), mae(ytest, pytest), mape(ytest, pytest)))
             
     return min(score, key = lambda x: x[1]), score
-
-    
-#  def xgt_l1 for very high dimensional features    
     
     
-# ---- Random forest
-
-# max_features:
-# n_estimators
-# max_depth
-
-def rf_n_depth_estimatior(maxnum, maxdep, X, Y, xtest, ytest, bool_clf, error_type ):
-        
-    tmpy = Y
-    score = []
-    
-    cnt = len(xtest)
-        
-    for n_trial in range(10,maxnum+1,10):
-        for dep_trial in range(2, maxdep+1):
-            
-            if bool_clf == True:
-                clf = RandomForestClassifier(n_estimators = n_trial, max_depth = dep_trial, max_features = "sqrt")
-            else:
-                clf = RandomForestRegressor(n_estimators = n_trial, max_depth = dep_trial, max_features = "sqrt")
-            
-            clf.fit( X, tmpy )
-        
-            pytest = clf.predict(xtest)
-            
-            if bool_clf == False:
-                
-                if error_type == 'rmse':
-                    score.append((n_trial, dep_trial, sqrt(mean([(pytest[i]-ytest[i])**2 for i in range(cnt) ]))))
-                    
-                elif error_type == 'mae':
-                    score.append((n_trial, dep_trial, mean([abs(ytest[k]-ytmp) for k, ytmp in enumerate(pytest)])))
-                
-            else:
-                score.append((trial_n, clf.score(xtest, ytest) ))
-                
-                #score.append( (n_trial, dep_trial, clf.score(xtest, ytest)) )
-#            score.append(\
-#            (n_trial, dep_trial, sqrt(mean([( pytest[i]-ytest[i] )**2 for i in range(cnt) ]))) )
-    
-    return min(score, key = lambda x: x[2]), score
-
-
 # ---- ElasticNet
 from sklearn.linear_model import ElasticNet
 
-def enet_alpha_l1(alpha_range, l1_range, xtrain, ytrain, xtest, ytest, error_type):
+def enet_alpha_l1(alpha_range, l1_range, xtrain, ytrain, xtest, ytest):
     
     res = []
     for i in alpha_range:
@@ -318,12 +308,6 @@ def enet_alpha_l1(alpha_range, l1_range, xtrain, ytrain, xtest, ytest, error_typ
             
             pytest = enet.predict( xtest )
             
-            if error_type == 'rmse':
-                tmp_err = sqrt(mean([(ytest[k]-ytmp)**2 for k, ytmp in enumerate(pytest)]))
-            
-            elif error_type == 'mae':
-                tmp_err = mean([ abs(ytest[k]-ytmp) for k, ytmp in enumerate(pytest)])
-            
-            res.append( (i,j,tmp_err) )
+            res.append( (i, j, rmse(ytest, pytest), mae(ytest, pytest), mape(ytest, pytest)) )
     
     return min(res, key = lambda x:x[2]), res

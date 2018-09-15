@@ -1,3 +1,6 @@
+
+--- DONE ---
+
 1. bi-directional LSTM 
 2. mixture model for non-stationry time series
 3. LSTM GRU tensorflow souce code 
@@ -89,17 +92,105 @@ observe tradeoff between representability and generalization ability when hyper-
 large network -> high learning rate 
 
 
---- TO DO ---
- 
 LSTM with various regularization
- 
-attention value affected by l2 regularization 
- 
-regularization on attention dropout 
+
+log: temporal and variable attention log in text
+
+temporal attention sensitivity 
+
+variable attention 
+
+regularization on attention
+
+learning rate decay 
+
+
+MV_FULL
+MV_Tensor
+
+  normalization 
+  stationarity 
+
+
+regularization on attention 
 dropout row/column mask 
 
-point-wise loss
-point-wise loss, loss reweight 
+
+--- Tuning logs ---
+
+remove bias in the temporal attention
+
+add back bias in temporal attention
+
+loss function squared_error to mse 
+
+remove regularization on mv-fusion and tsLSTM_seperate
+
+remmove regularization on attention of mv-lstm
+
+remove activation and bias in temporal attention
+
+add back activation and bias in temporal attention
+
+bias scope 
+
+mse - squared error
+
+synthetic 20+1 30  
+
+l2 on attention
+
+--- TO DO ---
+
+
+# plain time series prediction
+# periodic time series prediction
+
+# https://dandelion.eu/datamine/open-big-data/
+
+# http://www.johnwittenauer.net/a-simple-time-series-analysis-of-the-sp-500-index/
+
+# TO DO: 
+
+# Statistics programming 
+
+# http://nbviewer.jupyter.org/gist/ChadFulton/5127108f4c7025ed2648
+
+
+# Probabilistic Programming and Bayesian Methods for Hackers 
+# http://nbviewer.jupyter.org/github/CamDavidsonPilon/Probabilistic-Programming-and-Bayesian-Methods-for-Hackers/blob/master/Prologue/Prologue.ipynb
+
+
+learning rate decay
+batch/layer normalization
+
+
+
+Loss function:
+  llk + squared loss
+  quantile regression
+  earth mover distance
+  
+  point-wise loss
+  point-wise loss, loss reweight
+  
+
+Data:
+
+  PM25 6+1 20  
+  
+  
+  PLANT 9+1 20: ['irradiance', 'cloudcover', 'pressure', 'temperature', 'windspeed']
+                
+                ['irradiance', 'cloudcover', 'temperature']
+  
+  stock 81+1 10  
+  sml 16+1 10
+  
+ 
+
+bug on densen_num = 1
+
 
 
 Reference:
@@ -146,6 +237,8 @@ Post-processing:
    identify significance different in prior and poster variable attention 
    
 
+ 
+  
 
 Baseline:
    

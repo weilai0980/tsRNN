@@ -41,11 +41,24 @@ file_addr = ["../../dataset/dataset_ts/plant_xtrain.dat", \
              "../../dataset/dataset_ts/plant_ytest.dat"]
 file_dic.update( {"plant": file_addr} )
 
-file_addr = ["../../dataset/dataset_ts/syn_xtrain.dat", \
-             "../../dataset/dataset_ts/syn_xtest.dat", \
-             "../../dataset/dataset_ts/syn_ytrain.dat", \
-             "../../dataset/dataset_ts/syn_ytest.dat"]
+
+file_addr = ["../../dataset/dataset_ts/syn5_xtrain.dat", \
+             "../../dataset/dataset_ts/syn5_xtest.dat", \
+             "../../dataset/dataset_ts/syn5_ytrain.dat", \
+             "../../dataset/dataset_ts/syn5_ytest.dat"]
 file_dic.update( {"syn": file_addr} )
+
+file_addr = ["../../dataset/dataset_ts/xtrain_sml.dat", \
+             "../../dataset/dataset_ts/xtest_sml.dat", \
+             "../../dataset/dataset_ts/ytrain_sml.dat", \
+             "../../dataset/dataset_ts/ytest_sml.dat"]
+file_dic.update( {"sml": file_addr} )
+
+file_addr = ["../../dataset/dataset_ts/xtrain_nasdaq.dat", \
+             "../../dataset/dataset_ts/xtest_nasdaq.dat", \
+             "../../dataset/dataset_ts/ytrain_nasdaq.dat", \
+             "../../dataset/dataset_ts/ytest_nasdaq.dat"]
+file_dic.update( {"nasdaq": file_addr} )
 
 files_list = file_dic[dataset_str]
 
@@ -221,7 +234,9 @@ def roll_arimax( xts, exts, yts, arima_order, bool_add_ex ):
             print '--- finish by: ', i
         
         if bool_add_ex == True:
-            roll_mod = sm.tsa.statespace.SARIMAX(endog = tmp_x, exog = tmp_ex, order = arima_order)
+            
+            roll_mod = sm.tsa.statespace.SARIMAX(endog = tmp_x, exog = tmp_ex, order = arima_order, \
+                                                 enforce_stationarity=False)
             
             fit_res = roll_mod.fit(disp=False)
             predict = fit_res.get_forecast(1, exog = np.reshape(exts[i][-1], [1, exdim]))
@@ -244,7 +259,8 @@ def roll_arimax( xts, exts, yts, arima_order, bool_add_ex ):
         
     # return rooted mse
     return xts_hat, sqrt(mean((yts - np.asarray(xts_hat))*(yts - np.asarray(xts_hat)))),\
-           mean( abs(yts - np.asarray(xts_hat)) ), mean( abs(yts - np.asarray(xts_hat))/(yts+1e-5) )
+           mean( abs(yts - np.asarray(xts_hat)) ), \
+           mean( abs(yts - np.asarray(xts_hat))/(yts+1e-5) )
 
 def roll_strx( xts, exts, yts, bool_add_ex ):
     
@@ -305,11 +321,10 @@ with open("../../ts_results/tsML.txt", "a") as text_file:
 
 # --- arimax 
 
-
 #order selection
 errors = []
-for ar_order in range(3, 5):
-    for ma_order in range(1, 2):
+for ar_order in range(1, 5):
+    for ma_order in range(0, 2):
         
         _, rmse, mae, mape = roll_arimax( x_ts, ex_ts, yts, [ar_order, 0, ma_order], True )
         
