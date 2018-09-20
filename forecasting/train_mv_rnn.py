@@ -101,7 +101,6 @@ batch_size_dic.update( {"nasdaq": 4.0} )
 batch_size_dic.update( {"sml": 32} )
 
 
-
 # attention type
 attention_dic = {}
 attention_dic.update( {"plain": "temp"} )
