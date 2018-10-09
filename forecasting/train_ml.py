@@ -26,9 +26,16 @@ import xgboost as xgb
 import sys
 
 # local packages 
-#from utils_data_prep import *
 from ml_models import *
 
+''' 
+Arguments:
+
+dataset_str: name of the dataset
+
+'''
+
+# ---- load data ----
 
 dataset_str = str(sys.argv[1])
 print("Load dataset %s"%dataset_str)

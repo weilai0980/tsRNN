@@ -8,18 +8,20 @@ def load_specific_data(data, _from, _to):
     data = data[_from: _to]
     features = data[[
         '3:Temperature_Comedor_Sensor',
-        '5:Weather_Temperature', '6:CO2_Comedor_Sensor',
-        '7:CO2_Habitacion_Sensor', '8:Humedad_Comedor_Sensor',
-        '9:Humedad_Habitacion_Sensor', '10:Lighting_Comedor_Sensor',
-        '11:Lighting_Habitacion_Sensor', '13:Meteo_Exterior_Crepusculo',
-        '14:Meteo_Exterior_Viento', '15:Meteo_Exterior_Sol_Oest',
-        '16:Meteo_Exterior_Sol_Est', '17:Meteo_Exterior_Sol_Sud',
-        '18:Meteo_Exterior_Piranometro', '22:Temperature_Exterior_Sensor',
+        '5:Weather_Temperature', 
+        '6:CO2_Comedor_Sensor', '7:CO2_Habitacion_Sensor', 
+        '8:Humedad_Comedor_Sensor', '9:Humedad_Habitacion_Sensor', 
+        '10:Lighting_Comedor_Sensor', '11:Lighting_Habitacion_Sensor', 
+        '13:Meteo_Exterior_Crepusculo', '14:Meteo_Exterior_Viento', 
+        '15:Meteo_Exterior_Sol_Oest', '16:Meteo_Exterior_Sol_Est', 
+        '17:Meteo_Exterior_Sol_Sud', '18:Meteo_Exterior_Piranometro', 
+        '22:Temperature_Exterior_Sensor',
         '23:Humedad_Exterior_Sensor']]
     features = np.array(features.values.tolist())
 
     target = data[['4:Temperature_Habitacion_Sensor']]
     target = np.array(target.values.tolist())
+    
     return np.concatenate([features, target], axis=-1)
 
 

@@ -12,6 +12,14 @@ import statsmodels.api as sm
 from utils_libs import *
 from utils_data_prep import *
 
+''' 
+Arguments:
+
+dataset_str: name of the dataset
+
+'''
+
+'''
 # ---- LOADING DATA ----
 
 if len(sys.argv)<=1:
@@ -20,7 +28,21 @@ if len(sys.argv)<=1:
 
 dataset_str = str(sys.argv[1])
 print "Load dataset %s"%dataset_str
+'''
 
+# ---- load data ----
+
+dataset_str = str(sys.argv[1])
+print("Load dataset %s"%dataset_str)
+
+import json
+with open('config.json') as f:
+    file_dict = json.load(f)
+    
+print(" ---- Loading files at", file_dict[dataset_str]) 
+files_list = file_dict[dataset_str]
+
+'''
 file_dic = {}
 
 file_addr = ["../../dataset/dataset_ts/energy_xtrain.dat", \
@@ -61,6 +83,7 @@ file_addr = ["../../dataset/dataset_ts/xtrain_nasdaq.dat", \
 file_dic.update( {"nasdaq": file_addr} )
 
 files_list = file_dic[dataset_str]
+'''
 
 # ---- Statistical input  ----
 # input shape
@@ -260,7 +283,7 @@ def roll_arimax( xts, exts, yts, arima_order, bool_add_ex ):
     # return rooted mse
     return xts_hat, sqrt(mean((yts - np.asarray(xts_hat))*(yts - np.asarray(xts_hat)))),\
            mean( abs(yts - np.asarray(xts_hat)) ), \
-           mean( abs(yts - np.asarray(xts_hat))/(yts+1e-5) )
+           mean( abs(yts - np.asarray(xts_hat)/(yts+1e-5)) )
 
 def roll_strx( xts, exts, yts, bool_add_ex ):
     
@@ -286,6 +309,7 @@ def roll_strx( xts, exts, yts, bool_add_ex ):
             predict_ci = predict.conf_int()
             
         else:
+            
             roll_mod = sm.tsa.UnobservedComponents(endog = tmp_x, level= 'local linear trend', trend = True )
             
             fit_res = roll_mod.fit(disp=False)
@@ -314,22 +338,24 @@ num_var = np.shape(xts)[2]
 # split target and exogenous series 
 [ex_ts, x_ts] = np.split(xts, [num_var-1], axis=2)
 
-print '--- Shape of training data: ', np.shape(x_ts), np.shape(ex_ts)
+print '--- Shape of testing data: ', np.shape(x_ts), np.shape(ex_ts)
 
+# hyperparameter log files
 with open("../../ts_results/tsML.txt", "a") as text_file:
-    text_file.write( dataset_str+'\n' )
+    text_file.write("\n---- %s, data shape %s \n"%(dataset_str, np.shape(xtr)))
+
 
 # --- arimax 
 
 #order selection
 errors = []
 for ar_order in range(1, 5):
-    for ma_order in range(0, 2):
+    for ma_order in range(0, 1):
         
+        print "--- ARIMAX parameters: ", ar_order, ma_order,
         _, rmse, mae, mape = roll_arimax( x_ts, ex_ts, yts, [ar_order, 0, ma_order], True )
         
-        print "--- ARIMAX parameters: ", ar_order, ma_order, rmse, mae, mape
-        
+        print rmse, mae, mape
         errors.append( [ar_order, ma_order, rmse, mae, mape] )
 
 # [ar_order, ma_order, rmse, mae, mape]       
@@ -339,8 +365,9 @@ print "--- ARIMAX: ", error_min
 with open("../../ts_results/tsML.txt", "a") as text_file:
     text_file.write( "ARIMAX %s\n"%str(error_min))
 
-'''
+
 # --- structural time series models
+
 _, rmse, mae, mape = roll_strx( x_ts, ex_ts, yts, True )
 
 print "--- STRX: ", rmse, mae, mape
@@ -348,4 +375,4 @@ error_min = [rmse, mae, mape]
 
 with open("../../ts_results/tsML.txt", "a") as text_file:
     text_file.write( "STRX %s\n"%str(error_min))
-'''
+

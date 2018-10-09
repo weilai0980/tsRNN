@@ -419,6 +419,7 @@ def _mv_linear_full(args,
     #[B 3H]
     if len(args) == 1:
         res_gate = math_ops.matmul(args[0], weights_gate)
+        
     else:
         res_gate = math_ops.matmul(array_ops.concat(args, 1), weights_gate)
     
@@ -564,13 +565,13 @@ def _mv_linear_tensor(args,
     gate_tmp_mv = array_ops.split(gate_tmp_IH, num_or_size_splits = n_var, axis = 0) 
     gate_tmp_h  = array_ops.split(gate_tmp_HH, num_or_size_splits = n_var, axis = 0)
     
-    #[1 B H]
+    #[1 B 3H]
     gate_res_mv = array_ops.concat(gate_tmp_mv, 2)
     gate_res_h = array_ops.concat(gate_tmp_h, 2)
     
     gate_res_mv = array_ops.squeeze(gate_res_mv, axis = 0)
     gate_res_h = array_ops.squeeze(gate_res_h, axis = 0)
-    #[B H]
+    #[B 3H]
     res_gate = gate_res_mv + gate_res_h
     
     #[B 4H]

@@ -335,9 +335,9 @@ class tsLSTM_seperate():
         
     def train_batch(self, x_batch, y_batch, keep_prob ):
         
-        _, c, err_sum = self.sess.run([self.optimizer, self.loss, self.error_sqsum ],\
+        _, loss, err_sum = self.sess.run([self.optimizer, self.loss, self.error_sqsum ],\
                                       feed_dict = {self.x:x_batch, self.y:y_batch, self.keep_prob:keep_prob })
-        return c, err_sum
+        return loss, err_sum
 
 #   initialize inference         
     def inference_ini(self):
@@ -357,12 +357,7 @@ class tsLSTM_seperate():
 #   infer givn testing data
     def inference(self, x_test, y_test, keep_prob):
         
-        if self.att_type == '':
-            return self.sess.run([self.py, self.rmse, self.mae, self.mape], \
-                             feed_dict = {self.x:x_test, self.y:y_test, self.keep_prob:keep_prob})
-        
-        else:
-            return self.sess.run([self.att_temp, self.att_vari, self.py, self.rmse, self.mae, self.mape], \
+        return self.sess.run([self.py, self.rmse, self.mae, self.mape], \
                              feed_dict = {self.x:x_test, self.y:y_test, self.keep_prob:keep_prob})
 
 
@@ -766,7 +761,10 @@ class tsLSTM_mv():
                 
                 
                 # -- prior variable 
-                    
+                
+                # [B V]
+                self.att_prior = tf.squeeze( self.att_vari )
+                
                 # [V]
                 var_w_prior = tf.squeeze(tf.reduce_sum(self.att_vari, 0))
                 # 1
@@ -792,6 +790,9 @@ class tsLSTM_mv():
                 normalizer = tf.reduce_sum(joint_llk, 1, keepdims = True)
                 # [B V]    
                 tmp_posterior = 1.0*joint_llk / (normalizer + 1e-10)
+                
+                # [B V]
+                self.att_posterior = tmp_posterior
                 
                 # test?
                 self.sumw = tf.reduce_sum(tmp_posterior) 
@@ -880,6 +881,12 @@ class tsLSTM_mv():
                 # --- regularization
                 # ?
                 self.regularization = l2_dense*regu_dense + l2_dense*(regu_att_temp + regu_att_vari) 
+                
+                
+                # --- knowledge extraction 
+                
+                # [B V]
+                self.att_prior = tf.squeeze( self.att_vari )
            
         
         # --- regularization in LSTM 
@@ -946,6 +953,9 @@ class tsLSTM_mv():
 #   infer givn testing data    
     def inference(self, x, y, keep_prob):
         
+        return self.sess.run([self.py, self.rmse, self.mae, self.mape], 
+                                 feed_dict = {self.x:x, self.y:y, self.keep_prob:keep_prob})
+        '''
         if self.att_type in ['both-att', 'both-fusion']:
             
             # self.att_temp: [V B T-1] self.att_vari: [B V 1] -> [B V T-1], [B V]
@@ -956,7 +966,7 @@ class tsLSTM_mv():
         else:
             return self.sess.run([self.att, self.py, self.rmse, self.mae, self.mape], \
                                  feed_dict = {self.x:x, self.y:y, self.keep_prob:keep_prob})
-            
+        '''    
     
     def predict(self, x, y, keep_prob):
         
@@ -965,9 +975,26 @@ class tsLSTM_mv():
     def knowledge_extraction(self, x, y, keep_prob):
         
         if self.att_type == 'both-att':
-            return self.sess.run([self.sumw, tf.transpose(self.att_temp, [1, 0, 2]), tf.squeeze(self.att_vari, 2),\
-                                  self.ke_temp, self.ke_var_prior, self.ke_var_posterior],\
-                                 feed_dict = {self.x:x, 
+            
+            # self.att_temp: [V B T-1] self.att_vari: [B V 1]
+            
+            return self.sess.run([self.sumw, 
+                                  tf.transpose(self.att_temp, [1, 0, 2]), 
+                                  self.att_prior,
+                                  self.att_posterior, 
+                                  self.ke_temp, 
+                                  self.ke_var_prior, 
+                                  self.ke_var_posterior],
+                                  feed_dict = {self.x:x, 
+                                              self.y:y, 
+                                              self.keep_prob:keep_prob})
+        elif self.att_type == 'both-fusion':
+            
+            # self.att_temp: [V B T-1] self.att_vari: [B V 1]
+            
+            return self.sess.run([tf.transpose(self.att_temp, [1, 0, 2]), 
+                                  self.att_prior],
+                                  feed_dict = {self.x:x, 
                                               self.y:y, 
                                               self.keep_prob:keep_prob})
         else:

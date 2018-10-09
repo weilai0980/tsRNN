@@ -170,28 +170,19 @@ Optimization techniques:
 
 Loss function:
 
+  corss-check varialbe ranking or network 
+
+  distributional loss: regression 
+  risk minimization 
+
   llk + squared loss
   quantile regression
   earth mover distance
   
   point-wise loss
   point-wise loss, loss reweight
-  
-
-Data:
-
-  PM25 6+1 20  
-  
-  
-  PLANT 9+1 20: ['irradiance', 'cloudcover', 'pressure', 'temperature', 'windspeed']
-                
-                ['irradiance', 'cloudcover', 'temperature']
-  
-  stock 81+1 10  
-  sml 16+1 10
-  
  
-
+ 
 bug on densen_num = 1
 
 
@@ -204,6 +195,8 @@ Paper write-up:
    
 
 Experiments:
+
+   epoch log 
 
    synthetic data 
    https://archive.ics.uci.edu/ml/datasets/SML2010
@@ -244,6 +237,10 @@ Post-processing:
   
 
 Baseline:
+
+   Multilevel Wavelet Decomposition Network for Interpretable Time Series Analysis
+
+   Autoregressive Convolutional Neural Networks for Asynchronous Time Series
    
    (NIPS 2016)temporal regularized time series, prophet , python automatic time series forecasting , causalimpact
    prophet 

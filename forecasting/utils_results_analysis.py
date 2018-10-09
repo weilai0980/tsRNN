@@ -49,7 +49,7 @@ file_dic_statis.update( {"plant": file_addr} )
 
 def prior(df, num_vari, label_vari):
     
-    print '\n --- individual prior mean and variance:'
+    print('\n --- individual prior mean and variance:')
     indi_prior = []
     mean_prior = []
     
@@ -59,7 +59,7 @@ def prior(df, num_vari, label_vari):
         mean_prior.append( mean(tmp_prior) ) 
         
     vari_prior = zip( label_vari, mean_prior )
-    print sorted(vari_prior, key = lambda x:x[1]) 
+    print(sorted(vari_prior, key = lambda x:x[1])) 
     
     
     return np.transpose(indi_prior)
@@ -75,10 +75,10 @@ def aggregate_prior(df, num_vari, label_vari):
     tmpsum = sum(logit)
     agg_prior = [i/(tmpsum+1e-5) for i in logit]
     
-    print '\n --- aggregated prior :'
+    print('\n --- aggregated prior :')
     
     vari_prior = zip( label_vari, agg_prior )
-    print sorted(vari_prior, key = lambda x:x[1])
+    print(sorted(vari_prior, key = lambda x:x[1]))
     
 #     for z in range(num_vari):
 #         print label_vari[z], agg_prior[z]
@@ -94,10 +94,10 @@ def aggregate_poster(poster, num_vari, label_vari):
     tmpsum = sum(logit)
     agg_poster = [i/(tmpsum+1e-5) for i in logit]
     
-    print '\n --- aggregated posterior :'
+    print('\n --- aggregated posterior :')
     
     vari_poster = zip( label_vari, agg_poster )
-    print sorted(vari_poster, key = lambda x:x[1])
+    print(sorted(vari_poster, key = lambda x:x[1]))
     
 #     for z in range(num_vari):
 #         print label_vari[z], agg_prior[z]
@@ -123,7 +123,7 @@ def individual_posterior(df, num_vari, label_vari):
         
         poster.append(tmp_post)
     
-    print '\n --- individual_posterior mean and variance :'
+    print('\n --- individual_posterior mean and variance :')
     
     mean_poster = []
     for z in range(num_vari):
@@ -134,7 +134,7 @@ def individual_posterior(df, num_vari, label_vari):
 
     
     vari_prior = zip( label_vari, mean_poster )
-    print sorted(vari_prior, key = lambda x:x[1]) 
+    print(sorted(vari_prior, key = lambda x:x[1])) 
         
     return poster
         
@@ -167,7 +167,7 @@ def posterior(df, num_vari, label_vari, agg_prior):
     
         logit.append(tmplogit*agg_prior[z])
 
-    print '\n--- posterior: ', logit
+    print('\n--- posterior: ', logit)
     sum_logit = sum(logit)
     posterior = [i*1.0/(sum_logit+1e-350) for i in logit]
-    print posterior
+    print(posterior)
