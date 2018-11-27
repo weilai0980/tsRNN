@@ -1,5 +1,5 @@
 
---- DONE ---
+---- DONE ----
 
 1. bi-directional LSTM 
 2. mixture model for non-stationry time series
@@ -77,7 +77,12 @@ Related work:
    ARX model 
    
 
---- Tuning tricks ---
+---- Tuning tricks ----
+
+-- convergence: learning rate, batch size, network size 
+-- underfitting: network size
+-- overfitting: regularization strength, batch size, network size, target loss v.s. regularization
+
 
 Observe data to determine window size
 
@@ -85,12 +90,11 @@ Max-norm constraints and dropout together
 
 divergence point of training and validation errors as the training stopping point
 
-Training slow down:  learning rate, max norm, 
+Training slow down: learning rate, max norm, batch size 
 
 observe tradeoff between representability and generalization ability when hyper-parameter changes 
 
 large network -> high learning rate 
-
 
 LSTM with various regularization
 
@@ -103,14 +107,6 @@ variable attention
 regularization on attention
 
 learning rate decay 
-
-
-MV_FULL
-MV_Tensor
-
-  normalization 
-  stationarity 
-
 
 regularization on attention 
 dropout row/column mask 
@@ -140,11 +136,57 @@ synthetic 20+1 30
 
 l2 on attention
 
---- TO DO ---
+---- TO DO ----
+
+
+--
+
+Reading named command arguments
+
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--foo', '-f', help="a random options", type= str)
+parser.add_argument('--bar', '-b', help="a more random option", type= int, default= 0)
+
+print(parser.format_help())
+# usage: test_args_4.py [-h] [--foo FOO] [--bar BAR]
+# 
+# optional arguments:
+#   -h, --help         show this help message and exit
+#   --foo FOO, -f FOO  a random options
+#   --bar BAR, -b BAR  a more random option
+
+args = parser.parse_args("--foo pouet".split())
+print(args)  # Namespace(bar=0, foo='pouet')
+print(args.foo) # pouet
+print(args.bar) # 0
+--
+
+
+to Modify / Test:
+
+  tensordot operation 
+   
+  attention design
+
+  pseudo likelihood
+
+  posterior smoothing 
+  
+  dropout on output layer
+  
+  experiments: noisy input variables 
+
+
+effect of attention regularization
 
 
 Work to follow:
   https://beenkim.github.io/
+
+
+KL-divergency and Laplace smoothing 
 
 
 Statistical computing:
@@ -337,7 +379,7 @@ mixed effect in temporal data: e.g. air pollution data: heterogenous
 order effect: chosen order, automatic detected order  
 
 
---- experiments:
+---- experiments: ----
 
 For causal work:
 classification dataset

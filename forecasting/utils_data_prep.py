@@ -78,7 +78,7 @@ def multivariate_ts_stationarize(multivari_ts_df):
         
         tmp_stat_ts = ts_stationarize_diff( tmpts )
         
-        print("stationary prepro: ", tmp_stat_ts[0], tmp_stat_ts[1], len(tmp_stat_ts[2]), '\n')
+        print("stationarizing operation: ", tmp_stat_ts[0], tmp_stat_ts[1], len(tmp_stat_ts[2]), '\n')
         
         post_len.append( len(tmp_stat_ts[2]) )
         post_dta.append( tmp_stat_ts[2] )
@@ -317,7 +317,7 @@ def build_training_testing_data_4learning(dta_df, target_col, indep_col,
     if para_uni_variate == True:
         
         x_all, y_all = instance_extraction( \
-                       list(dta_df[target_col][ para_train_range[0]:para_train_range[1] ]), \
+                                           list(dta_df[target_col][ para_train_range[0]:para_train_range[1] ]), \
                                            para_win_size, is_stateful )
 
 # multiple independent and one target series
@@ -325,8 +325,8 @@ def build_training_testing_data_4learning(dta_df, target_col, indep_col,
         dta_mat = dta_df[ indep_col ][ para_train_range[0]:para_train_range[1] ].as_matrix()
         
         x_all, y_all = instance_extraction_multiple_one( \
-                        list(dta_df[ target_col ][ para_train_range[0]:para_train_range[1] ]),\
-                                                 list(dta_mat),para_win_size, is_stateful )
+                                                 list(dta_df[ target_col ][ para_train_range[0]:para_train_range[1] ]),\
+                                                 list(dta_mat), para_win_size, is_stateful )
 # multivariate 
 # x_all, y_all = instance_extraction( list(dta_df[['Open','High','Low','Volume']][:4000]), 100 )
 
