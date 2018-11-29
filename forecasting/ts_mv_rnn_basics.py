@@ -28,12 +28,12 @@ def multi_mv_dense( num_layers, keep_prob, h_vari, dim_vari, scope, num_vari, \
         with tf.variable_scope(scope+str(i)):
             
             # ? dropout
-            h_mv_input = tf.nn.dropout(h_mv_input, tf.gather(keep_prob, 0))
+            h_mv_input = tf.nn.dropout(h_mv_input, keep_prob)
             # h_mv [V B d]
             # ? max norm constrains
             h_mv_input, tmp_regu_dense = mv_dense(h_mv_input, \
                                                   in_dim_vari,\
-                                                  scope+str(i),\
+                                                  scope + str(i),\
                                                   num_vari, \
                                                   out_dim_vari,\
                                                   False, max_norm_regul, regul_type)
@@ -63,6 +63,7 @@ def mv_dense( h_vari, dim_vari, scope, num_vari, dim_to, bool_no_activation, max
         
         # max-norm regularization 
         if max_norm_regul > 0:
+            
             clipped = tf.clip_by_norm(w, clip_norm = max_norm_regul, axes = 2)
             clip_w = tf.assign(w, clipped)
             

@@ -76,6 +76,14 @@ Related work:
 
    ARX model 
    
+pseudo likelihood
+
+dropout on output layer
+
+tensordot operation 
+
+  position of variable attention
+
 
 ---- Tuning tricks ----
 
@@ -112,30 +120,6 @@ regularization on attention
 dropout row/column mask 
 
 
---- Tuning logs ---
-
-remove bias in the temporal attention
-
-add back bias in temporal attention
-
-loss function squared_error to mse 
-
-remove regularization on mv-fusion and tsLSTM_seperate
-
-remmove regularization on attention of mv-lstm
-
-remove activation and bias in temporal attention
-
-add back activation and bias in temporal attention
-
-bias scope 
-
-mse - squared error
-
-synthetic 20+1 30  
-
-l2 on attention
-
 ---- TO DO ----
 
 
@@ -166,15 +150,9 @@ print(args.bar) # 0
 
 to Modify / Test:
 
-  tensordot operation 
-   
   attention design
 
-  pseudo likelihood
-
   posterior smoothing 
-  
-  dropout on output layer
   
   experiments: noisy input variables 
 

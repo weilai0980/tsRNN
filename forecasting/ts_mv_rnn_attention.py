@@ -296,8 +296,16 @@ def mv_attention_variate( h_temp, var_dim, scope, num_vari, att_type ):
             b_var = tf.Variable(tf.random_normal([1]))
             
             #? bias nonlinear activation ?
+            '''
             # [V B 1] = [V B D]*[D 1]
             logits = tf.nn.tanh(tf.transpose(tf.tensordot(h_temp, w_var, axes=1) + b_var, [1, 0, 2]))
+            '''
+            
+            # [1 1 D]
+            augment_w_var = tf.expand_dims(tf.transpose(w_var, [1, 0]), 0)
+            # [B V 1] <- [V B 1] = [V B D]*[1 1 D]
+            logits = tf.nn.tanh( tf.transpose(tf.reduce_sum(h_temp*augment_w_var, 2, keepdims = True) + b_var, [1, 0, 2]) ) 
+            
             # [B V 1]
             var_weight = tf.nn.softmax(logits, dim = 1)
             
@@ -437,7 +445,7 @@ def mv_attention_variate( h_temp, var_dim, scope, num_vari, att_type ):
             h_res = tf.concat([h_indep_weighted, h_tar_squeeze], 1)
         '''    
         
-    return h_res, tf.nn.l2_loss(w_var), var_weight
+    return h_res, tf.nn.l2_loss(w_var), var_weight, logits
 
 
 '''

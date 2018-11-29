@@ -373,32 +373,66 @@ class tsLSTM_mv():
     
     def __init__(self, n_lstm_dim_layers, n_steps, n_data_dim, session,\
                  lr, max_norm, bool_residual, \
-                 bool_att, temp_decay_type, temp_attention_type, \
+                 att_type, temp_decay_type, temp_attention_type, \
                  l2_dense, l2_att, vari_attention_type, loss_type, \
-                 dense_regul_type, layer_norm_type, num_mv_dense, ke_type, rnn_gate_type ):
+                 dense_regul_type, layer_norm_type, num_mv_dense, ke_type, mv_rnn_gate_type,
+                 bool_regular_lstm, bool_regular_attention, bool_regular_dropout_output,\
+                 vari_attention_after_mv_desne,\
+                 add_regu_vari_impt,\
+                 add_regu_vari_impt_logits):
         
         '''
         Args:
         
-        n_lstm_dim_layers
-        n_steps, 
-        n_data_dim, 
-        session,
-        lr, 
-        max_norm, 
-        bool_residual, 
-        bool_att, 
-        temp_decay_type, 
-        temp_attention_type, 
-        l2_dense, 
-        l2_att, 
-        vari_attention_type, 
-        loss_type, 
-        dense_regul_type, 
-        layer_norm_type, 
-        num_mv_dense, 
-        ke_type, 
-        rnn_gate_type 
+        n_lstm_dim_layers: list of integers, list of sizes of each LSTM layer
+        
+        n_steps: integer, time step of the input sequence 
+        
+        n_data_dim: integer, dimension of data at each time step
+        
+        session: tensorflow session
+        
+        lr: float, learning rate
+        
+        max_norm: max norm constraint on weights used with dropout
+        
+        bool_residual: add residual connection between stacked LSTM layers
+        
+        att_type: string, type of attention, {both-att, both-fusion}  
+        
+        temp_decay_type: string
+        
+        temp_attention_type: string,
+        
+        l2_dense: float, l2 regularization on the dense layers
+        
+        l2_att: float, l2 regularization on attentions
+        
+        vari_attention_type: string,
+        
+        loss_type: string, type of loss functions, {mse, lk, pseudo_lk}
+        
+        dense_regul_type: string, regularization type, {l2, l1}
+        
+        layer_norm_type: string, layer normalization type in MV layer
+        
+        num_mv_dense: int, number of dense layers after the MV layer
+        
+        ke_type: string, knowledge extration type, {aggre_posterior, base_posterior, base_prior}
+        
+        mv_rnn_gate_type: string, gate update in MV layer, {full, tensor}
+        
+        bool_regular_lstm: regularization on LSTM weights
+        
+        bool_regular_attention: regularization on attention
+        
+        bool_regular_dropout_output: dropout before the outpout layer
+        
+        vari_attention_after_temp: if variable attention after the multi-mv-dense
+        
+        add_regu_vari_impt: add the global variable importance regularization
+        
+        add_regu_vari_impt_logits: regularization on the logits of vari_impt
         
         Returns:
         
@@ -412,12 +446,12 @@ class tsLSTM_mv():
         self.N_DATA_DIM = n_data_dim
         
         self.loss_type = loss_type
-        self.att_type = bool_att
+        self.att_type = att_type
         
         # placeholders
         self.x = tf.placeholder(tf.float32, [None, self.N_STEPS, self.N_DATA_DIM])
         self.y = tf.placeholder(tf.float32, [None, 1])
-        self.keep_prob = tf.placeholder(tf.float32, [None])
+        self.keep_prob = tf.placeholder(tf.float32, shape =() )
         
         steps = tf.constant( list(range(self.N_STEPS-2, -1, -1)), dtype=tf.float32 )
         alpha = tf.constant( 0.2, dtype=tf.float32 )
@@ -427,6 +461,11 @@ class tsLSTM_mv():
         self.lr = lr
         #tf.Variable(lr, trainable = False)
         self.new_lr = tf.placeholder(tf.float32, shape = (), name = 'new_lr')
+        
+        # trainable variables 
+        # [1 V 1]
+        self.vari_impt_logits = tf.get_variable('vari_impt_logits', [1, self.N_DATA_DIM, 1],\
+                                        initializer=tf.contrib.layers.xavier_initializer())
         
         # residual connections
         if bool_residual == True:
@@ -627,25 +666,25 @@ class tsLSTM_mv():
                 self.regularization = l2_dense*regu_mv_dense + l2_dense*regu_mv_dense1 + l2_att*regu_att_vari
             '''    
             
-            if bool_att == 'both-att':
+            if att_type == 'both-att':
                 
-                print(' --- MV-RNN using both temporal and variate attention in ', bool_att)
+                print(' --- MV-RNN using both temporal and variate attention in ', att_type)
                 
                 with tf.variable_scope('lstm'):
                     
                     # ? layer_norm
-                    # ? ? ? no-memory-loss dropout: off
+                    # ? no-memory-loss dropout: off
                     mv_cell = MvLSTMCell(n_lstm_dim_layers[0], \
                                          n_var = n_data_dim ,\
                                          initializer = tf.contrib.layers.xavier_initializer(),\
-                                         memory_update_keep_prob = tf.gather(self.keep_prob, 0),\
-                                         layer_norm = layer_norm_type,
-                                         gate_type = rnn_gate_type)
+                                         memory_update_keep_prob = self.keep_prob,\
+                                         layer_norm = layer_norm_type,\
+                                         gate_type = mv_rnn_gate_type)
                     
                     # ? dropout for input-hidden, hidden-hidden, hidden-output 
                     # ? variational dropout
-                    drop_mv_cell = tf.nn.rnn_cell.DropoutWrapper(mv_cell, \
-                                                                 state_keep_prob = tf.gather(self.keep_prob, 0))
+                    drop_mv_cell = tf.nn.rnn_cell.DropoutWrapper(mv_cell,\
+                                                                 state_keep_prob = self.keep_prob )
                     
                     h, state = tf.nn.dynamic_rnn(cell = drop_mv_cell, inputs = self.x, dtype = tf.float32)
                 
@@ -653,19 +692,19 @@ class tsLSTM_mv():
                 # stacked mv-lstm
                 for i in range(1, len(n_lstm_dim_layers)):
                     
-                    with tf.variable_scope('lstm'+str(i)):
+                    with tf.variable_scope('lstm' + str(i)):
                         
                         mv_cell = MvLSTMCell(n_lstm_dim_layers[i], \
                                              n_var = n_data_dim ,\
                                              initializer = tf.contrib.layers.xavier_initializer(),\
-                                             memory_update_keep_prob = tf.gather(self.keep_prob, 0),\
+                                             memory_update_keep_prob = self.keep_prob,\
                                              layer_norm = layer_norm_type,
-                                             gate_type = rnn_gate_type)
+                                             gate_type = mv_rnn_gate_type)
                     
                         # ? dropout for input-hidden, hidden-hidden, hidden-output 
                         # ? variational dropout
                         drop_mv_cell = tf.nn.rnn_cell.DropoutWrapper(mv_cell, \
-                                                                     state_keep_prob = tf.gather(self.keep_prob, 0))
+                                                                     state_keep_prob = self.keep_prob )
                     
                         h, state = tf.nn.dynamic_rnn(cell = drop_mv_cell, inputs = h, dtype = tf.float32)
                 
@@ -690,6 +729,20 @@ class tsLSTM_mv():
                                                                          temp_decay_type,
                                                                          temp_attention_type, 
                                                                          self.N_DATA_DIM)
+                # ---- variate attention BEFORE
+                
+                if vari_attention_after_mv_desne == False:
+                    
+                    # ? dropout
+                    # h_att_vari_input = tf.nn.dropout(h_temp, tf.gather(self.keep_prob,1))
+                    h_att_vari_input = h_temp
+                
+                    # variable attention 
+                    _, regu_att_vari, self.att_vari, vari_logits = mv_attention_variate(h_att_vari_input,
+                                                                           2*int(n_lstm_dim_layers[-1]/self.N_DATA_DIM),
+                                                                           'att_vari', 
+                                                                           self.N_DATA_DIM, 
+                                                                           vari_attention_type)
                 # ---- multiple mv-dense layers
                 # [V B 2D] - [V B d]
                 
@@ -704,22 +757,42 @@ class tsLSTM_mv():
                                                           max_norm, 
                                                           dense_regul_type)
                 
-                # ---- variate attention
+                # ---- variate attention AFTER
                 
-                # ? dropout
-                # h_att_vari_input = tf.nn.dropout(h_temp, tf.gather(self.keep_prob,1))
-                h_att_vari_input = h_mv
+                if vari_attention_after_mv_desne == True:
+                    
+                    # ? dropout
+                    # h_att_vari_input = tf.nn.dropout(h_temp, tf.gather(self.keep_prob,1))
+                    h_att_vari_input = h_mv
                 
-                # variable attention 
-                _, regu_att_vari, self.att_vari = mv_attention_variate(h_att_vari_input,
-                                                                       dim_vari,
-                                                                       'att_vari', 
-                                                                       self.N_DATA_DIM, 
-                                                                       vari_attention_type)
+                    # variable attention 
+                    # [B V 1]
+                    _, regu_att_vari, self.att_vari, vari_logits = mv_attention_variate(h_att_vari_input,
+                                                                                        dim_vari,
+                                                                                        'att_vari', 
+                                                                                        self.N_DATA_DIM, 
+                                                                                        vari_attention_type)
+                # ---- variable importance regularization
+                
+                w_vari_impt = tf.get_variable('w_vari_impt', [1,], initializer=tf.contrib.layers.xavier_initializer())
+                
+                # [B] <- [B V 1] - [1 V 1]
+                logits_diff_sq = tf.reduce_sum(tf.square(tf.squeeze(vari_logits - self.vari_impt_logits, [2])), 1)
+                self.vari_impt = tf.nn.softmax(tf.squeeze(self.vari_impt_logits))
+                
+                # ?
+                regu_vari_impt = tf.reduce_sum(logits_diff_sq)
+                
+                if add_regu_vari_impt_logits == True:
+                    regu_vari_impt += tf.nn.l2_loss(self.vari_impt_logits) 
+                                               
+                
                 # ---- individual prediction
                 
                 # ? dropout
-                # h_mv = tf.nn.dropout(h_mv, tf.gather(self.keep_prob,1))
+                
+                if bool_regular_dropout_output == True:
+                    h_mv = tf.nn.dropout(h_mv, self.keep_prob)
                 
                 # outpout layer without max-norm regularization
                 h_mv, tmp_regu_output = mv_dense(h_mv, dim_vari, 'output', self.N_DATA_DIM, 2, True, 0.0, dense_regul_type)
@@ -753,14 +826,16 @@ class tsLSTM_mv():
                 tmp_mean = tf.transpose(tf.squeeze(h_mean, [2]), [1,0]) 
                 tmp_var  = tf.transpose(tf.squeeze(h_var,  [2]), [1,0])
                 
+                # ?
                 # [B V]
-                tmp_llk = tf.exp( -0.5*tf.square(y_tile - tmp_mean)/(tmp_var + 1e-5) )/(2.0*np.pi*(tmp_var + 1e-5))**0.5
-                
-                tmp_pseudo_llk = tf.exp( -0.5*tf.square(y_tile - tmp_mean) )
+                tmp_llk = tf.exp(-0.5*tf.square(y_tile - tmp_mean)/(tmp_var + 1e-5))/(2.0*np.pi*(tmp_var + 1e-5))**0.5
+                llk = tf.multiply( tmp_llk, tf.squeeze(self.att_vari, [2]) ) 
+                self.neg_logllk = tf.reduce_sum(-1.0*tf.log(tf.reduce_sum(llk, 1)+1e-5))
                 
                 # ?
-                llk = tf.multiply( tmp_llk, tf.squeeze(self.att_vari, [2]) ) 
-                self.neg_logllk = tf.reduce_sum( -1.0*tf.log(tf.reduce_sum(llk, 1)+1e-5) )
+                tmp_pseudo_llk = tf.exp( -0.5*tf.square(y_tile - tmp_mean) )/(2.0*np.pi)**0.5
+                pseudo_llk = tf.multiply( tmp_pseudo_llk, tf.squeeze(self.att_vari, [2]) ) 
+                self.pseudo_neg_logllk = tf.reduce_sum( -1.0*tf.log(tf.reduce_sum(pseudo_llk, 1)+1e-5) )
                 
                 
                 # ---- knowledge extraction
@@ -822,12 +897,17 @@ class tsLSTM_mv():
                 # ---- regularization
                 # ?
                 self.regularization = l2_dense*mv_dense_regu 
-                #+ 0.1*l2_dense*(regu_att_temp + regu_att_vari) 
+                
+                if bool_regular_attention == True:
+                    self.regularization += 0.1*l2_dense*(regu_att_temp + regu_att_vari)
+                    
+                if add_regu_vari_impt == True:
+                    self.regularization += 0.1*l2_dense*(regu_vari_impt)
                 
         
-            elif bool_att == 'both-fusion':
+            elif att_type == 'both-fusion':
                 
-                print(' --- MV-RNN using both temporal and variate attention in ', bool_att)
+                print(' --- MV-RNN using both temporal and variate attention in ', att_type)
                 
                 with tf.variable_scope('lstm'):
                     
@@ -836,13 +916,13 @@ class tsLSTM_mv():
                     mv_cell = MvLSTMCell(n_lstm_dim_layers[0], 
                                          n_var = n_data_dim ,\
                                          initializer = tf.contrib.layers.xavier_initializer(),\
-                                         memory_update_keep_prob = tf.gather(self.keep_prob, 0),\
+                                         memory_update_keep_prob = self.keep_prob,\
                                          layer_norm = layer_norm_type,
-                                         gate_type = rnn_gate_type)
+                                         gate_type = mv_rnn_gate_type)
                     
                     # ? dropout for input-hidden, hidden-hidden, hidden-output 
                     # ? variational dropout
-                    drop_mv_cell = tf.nn.rnn_cell.DropoutWrapper(mv_cell, state_keep_prob = tf.gather(self.keep_prob, 0))
+                    drop_mv_cell = tf.nn.rnn_cell.DropoutWrapper(mv_cell, state_keep_prob = self.keep_prob)
                     
                     h, state = tf.nn.dynamic_rnn(cell = drop_mv_cell, inputs = self.x, dtype = tf.float32)
                 
@@ -886,11 +966,12 @@ class tsLSTM_mv():
                                                      2*int(n_lstm_dim_layers[-1]/self.N_DATA_DIM), \
                                                      num_mv_dense, \
                                                      'dense', \
-                                                     tf.gather(self.keep_prob, 0), \
+                                                     self.keep_prob, \
                                                      max_norm)
                 
                 # ? dropout
-                # h = tf.nn.dropout(h, tf.gather(self.keep_prob,1))
+                if bool_regular_dropout_output == True:
+                    h = tf.nn.dropout(h, self.keep_prob)
                 
                 with tf.variable_scope("output"):
                     
@@ -903,9 +984,11 @@ class tsLSTM_mv():
                 
                 # ---- regularization
                 # ?
-                self.regularization = l2_dense*regu_dense 
-                #+ l2_dense*(regu_att_temp + regu_att_vari) 
                 
+                self.regularization = l2_dense*regu_dense
+                
+                if bool_regular_attention == True:
+                    self.regularization += 0.1*l2_dense*(regu_att_temp + regu_att_vari)
                 
                 # ---- knowledge extraction 
                 
@@ -916,8 +999,10 @@ class tsLSTM_mv():
         # ---- regularization in LSTM
         
         # ?
-        self.regul_lstm = sum( tf.nn.l2_loss(tf_var) for tf_var in tf.trainable_variables() if ("lstm" in tf_var.name))
-        self.regularization += 0.1*l2_dense*self.regul_lstm
+        self.regul_lstm = sum(tf.nn.l2_loss(tf_var) for tf_var in tf.trainable_variables() if ("lstm" in tf_var.name))
+        
+        if bool_regular_lstm == True:
+            self.regularization += 0.1*l2_dense*self.regul_lstm
 
         
     def train_ini(self):  
@@ -937,6 +1022,10 @@ class tsLSTM_mv():
             
             # ? 
             self.loss = self.neg_logllk + self.regularization
+        
+        elif self.loss_type == 'pseudo_lk':
+            
+            self.loss = self.pseudo_neg_logllk + self.regularization
             
         else:
             print('--- [ERROR] loss type')
@@ -950,10 +1039,10 @@ class tsLSTM_mv():
     def train_batch(self, x_batch, y_batch, keep_prob, bool_set_lr, new_lr):
         
         # learning rate decay update
-        #if bool_set_lr == True:
-        #    self.lr_update = tf.assign(self.lr, self.new_lr)
-        #    _ = self.sess.run([self.lr_update], feed_dict={self.new_lr:lr})
-        
+        if bool_set_lr == True:
+            
+            self.lr_update = tf.assign(self.lr, self.new_lr)
+            _ = self.sess.run([self.lr_update], feed_dict={self.new_lr:lr})
         
         _, tmp_loss, tmp_sqsum = self.sess.run([self.optimizer, self.loss, self.square_error],\
                                                feed_dict = {self.x:x_batch, \
@@ -980,7 +1069,7 @@ class tsLSTM_mv():
 #   inference givn data    
     def inference(self, x, y, keep_prob):
         
-        return self.sess.run([self.py, self.rmse, self.mae, self.mape], 
+        return self.sess.run([self.py, self.rmse, self.mae, self.mape, self.vari_impt], 
                              feed_dict = {self.x:x, self.y:y, self.keep_prob:keep_prob})
     
     def predict(self, x, y, keep_prob):
