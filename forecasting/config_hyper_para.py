@@ -19,8 +19,8 @@ hidden_dim_dic.update( {"nasdaq_sub_full": [410]} )
 hidden_dim_dic.update( {"nasdaq_sub_tensor": [410]} )
 hidden_dim_dic.update( {"nasdaq_uni": [128]} )
 
-# lk: 255 mse: 170
-hidden_dim_dic.update( {"sml": [255]} )
+# lk: ? mse: 170
+hidden_dim_dic.update( {"sml": [170]} )
 hidden_dim_dic.update( {"sml_pearson": [90]} )
 hidden_dim_dic.update( {"sml_no_target": [160]} )
 hidden_dim_dic.update( {"sml_sub_full": [90]} )
@@ -77,8 +77,8 @@ batch_size_dic.update( {"nasdaq_sub_full": 64} )
 batch_size_dic.update( {"nasdaq_sub_tensor": 64} )
 batch_size_dic.update( {"nasdaq_uni": 64} )
 
-# mse 32, lk ?
-batch_size_dic.update( {"sml": 64} )
+#  lk ?, mse 32
+batch_size_dic.update( {"sml": 32} )
 batch_size_dic.update( {"sml_pearson": 32} )
 batch_size_dic.update( {"sml_no_target": 32} )
 batch_size_dic.update( {"sml_sub_full": 32} )
@@ -136,3 +136,26 @@ attention_dic.update( {"clstm_sub": ""} )
 attention_dic.update( {"sep": "both-att"} )
 attention_dic.update( {"sep_sub": "both-att"} )
 '''
+
+# loss type
+loss_dic = {}
+loss_dic.update( {"plant": "pseudo_lk"} )
+loss_dic.update( {"plant_pearson": "lk"} )
+loss_dic.update( {"plant_no_target": "lk"} )
+loss_dic.update( {"plant_sub_full": "lk"} )
+loss_dic.update( {"plant_sub_tensor": "lk"} )
+loss_dic.update( {"plant_uni": "lk"} )
+
+loss_dic.update( {"nasdaq": "lk"} )
+loss_dic.update( {"nasdaq_pearson": "lk"} )
+loss_dic.update( {"nasdaq_no_target": "lk"} )
+loss_dic.update( {"nasdaq_sub_full": "lk"} )
+loss_dic.update( {"nasdaq_sub_tensor": "lk"} )
+loss_dic.update( {"nasdaq_uni": "lk"} )
+
+loss_dic.update( {"sml": "mse"} )
+loss_dic.update( {"sml_pearson": "mse"} )
+loss_dic.update( {"sml_no_target": "mse"} )
+loss_dic.update( {"sml_sub_full": "mse"} )
+loss_dic.update( {"sml_sub_tensor": "mse"} )
+loss_dic.update( {"sml_uni": "mse"} )

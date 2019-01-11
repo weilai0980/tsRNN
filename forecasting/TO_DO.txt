@@ -83,6 +83,10 @@ dropout on output layer
 tensordot operation 
 
   position of variable attention
+  
+effect of attention regularization
+
+ learning rate decay
 
 
 ---- Tuning tricks ----
@@ -122,7 +126,6 @@ dropout row/column mask
 
 ---- TO DO ----
 
-
 --
 
 Reading named command arguments
@@ -145,27 +148,32 @@ args = parser.parse_args("--foo pouet".split())
 print(args)  # Namespace(bar=0, foo='pouet')
 print(args.foo) # pouet
 print(args.bar) # 0
---
 
+--
 
 to Modify / Test:
 
-  attention design
-
-  posterior smoothing 
+  attention:  
+     
+     attention regularization
+     
+     attenion on exgoneous variable taking into account the hiddens of the target variable 
+     
+     sparse attention on temporal
+     
+  Laplace posterior smoothing, KL-divergency and Laplace smoothing 
   
-  experiments: noisy input variables 
-
-
-effect of attention regularization
-
+  experiments: noisy input variables
+  
+               compare with linear correlation, pearson 
+                             
+  optimization techniques:
+               
+               batch/layer normalization
 
 Work to follow:
   https://beenkim.github.io/
-
-
-KL-divergency and Laplace smoothing 
-
+  
 
 Statistical computing:
 
@@ -173,19 +181,11 @@ Statistical computing:
 
   http://www.johnwittenauer.net/a-simple-time-series-analysis-of-the-sp-500-index/
 
-
   http://nbviewer.jupyter.org/gist/ChadFulton/5127108f4c7025ed2648
 
   Probabilistic Programming and Bayesian Methods for Hackers:
   http://nbviewer.jupyter.org/github/CamDavidsonPilon/Probabilistic-Programming-and-Bayesian-Methods-for-     
   Hackers/blob/master/Prologue/Prologue.ipynb
-
-
-Optimization techniques:
-  
-  learning rate decay
-  batch/layer normalization
-
 
 
 Loss function:
@@ -203,12 +203,8 @@ Loss function:
   point-wise loss, loss reweight
  
  
-bug on densen_num = 1
-
-
-
 Reference:
-   feature importance
+   feature/variable importance
 
 Paper write-up:
    reference check
@@ -227,7 +223,6 @@ Experiments:
    mv_lstm: hidden combination 
    
    predition sample
-   
    
    multi-step ahead prediction
    
@@ -252,17 +247,17 @@ Post-processing:
    select top-k variables, run prediction again
    identify significance different in prior and poster variable attention 
    
-
- 
   
 
 Baseline:
+
+   RETAIN and DUAL: instance-wise aggregate 
 
    Multilevel Wavelet Decomposition Network for Interpretable Time Series Analysis
 
    Autoregressive Convolutional Neural Networks for Asynchronous Time Series
    
-   (NIPS 2016)temporal regularized time series, prophet , python automatic time series forecasting , causalimpact
+   (NIPS 2016)temporal regularized time series, prophet, python automatic time series forecasting , causalimpact
    prophet 
    # basic model 
    # multivariate time series
@@ -308,13 +303,6 @@ Multi-layer MV-LSTM
 Training and tesing importance value comparison, stablize variable importance across epoches 
 
 
-Attention:
-
-   attenion on exgoneous variable taking into account the hiddens of the target variable 
-   
-   sparse attention on temporal 
-   
-
 Model interpretation:
    https://phys.org/news/2017-12-climate-conditions-affect-solar-cell.html
     
@@ -329,11 +317,8 @@ Bayesian:
   https://gist.github.com/tokestermw/a9de2ef498a09747bbf673ddf6ea4843
 
 
-
 Memory mechanism:
    some improvements on memory moduel in LSTM 
-
-
 
 Metrics:
     RMSE, MAE, MAPE 
@@ -360,13 +345,8 @@ order effect: chosen order, automatic detected order
 ---- experiments: ----
 
 For causal work:
-classification dataset
-Wafer: Sensor data collected during the manufacture of semiconductor microelectronics, where the time series are labeled as normal or abnormal.
-
----air
-
-plain att: 130
-sep att: 120
+   classification dataset
+   Wafer: Sensor data collected during the manufacture of semiconductor microelectronics, where the time series are labeled as    normal or abnormal.
 
 
 

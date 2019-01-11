@@ -169,7 +169,7 @@ def plain_lstm(x, dim_layers, scope, dropout_keep_prob):
                                                initializer= tf.contrib.keras.initializers.glorot_normal())
             
             # dropout
-            lstm_cell = tf.nn.rnn_cell.DropoutWrapper(tmp_cell, state_keep_prob = tf.gather(dropout_keep_prob, 0))
+            lstm_cell = tf.nn.rnn_cell.DropoutWrapper(tmp_cell, state_keep_prob = dropout_keep_prob)
             
             hiddens, state = tf.nn.dynamic_rnn(cell = lstm_cell, inputs = x, dtype = tf.float32)
         
@@ -180,7 +180,7 @@ def plain_lstm(x, dim_layers, scope, dropout_keep_prob):
                                                     initializer= tf.contrib.keras.initializers.glorot_normal())
             
             # dropout
-            lstm_cell = tf.nn.rnn_cell.DropoutWrapper(tmp_cell, state_keep_prob = tf.gather(dropout_keep_prob, 0))
+            lstm_cell = tf.nn.rnn_cell.DropoutWrapper(tmp_cell, state_keep_prob = dropout_keep_prob)
             
             hiddens, state = tf.nn.dynamic_rnn(cell = lstm_cell, inputs = hiddens, dtype = tf.float32)
                 

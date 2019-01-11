@@ -19,7 +19,8 @@ from ts_mv_rnn_basics import *
 class tsLSTM_plain():
     
     def __init__(self, n_lstm_dim_layers, n_steps, n_data_dim, session,\
-                 lr, l2_dense, max_norm, bool_residual, att_type, l2_att, num_dense):
+                 lr, l2_dense, max_norm, bool_residual, att_type, l2_att, num_dense, \
+                 bool_regular_attention, bool_regular_lstm, bool_regular_dropout_output):
         
         self.LEARNING_RATE = lr
         self.L2 =  l2
@@ -34,14 +35,15 @@ class tsLSTM_plain():
         # placeholders
         self.x = tf.placeholder(tf.float32, [None, self.N_STEPS, self.N_DATA_DIM])
         self.y = tf.placeholder(tf.float32, [None, 1])
-        self.keep_prob = tf.placeholder(tf.float32, [None])
+        self.keep_prob = tf.placeholder(tf.float32, shape = ())
         
-        # begin to build the graph
+        # ---- network architecture 
+        
         self.sess = session
         
-        h, _ = plain_lstm( self.x, n_lstm_dim_layers, 'lstm', self.keep_prob )
+        h, _ = plain_lstm(self.x, n_lstm_dim_layers, 'lstm', self.keep_prob)
         
-        
+        # attention
         if att_type == 'temp':
             
             print(' --- Plain RNN using temporal attention:  ')
@@ -49,42 +51,48 @@ class tsLSTM_plain():
             h, self.att, regu_att = attention_temp_logit( h, n_lstm_dim_layers[-1], 'att', self.N_STEPS )
             
             # dropout
-            h, regu_dense, out_dim = multi_dense( h, 2*n_lstm_dim_layers[-1], num_dense, \
-                                                  'dense', tf.gather(self.keep_prob, 0), max_norm)
-            
-            #?
-            self.regularization = l2_dense*regu_dense + l2_att*regu_att
+            h, regu_dense, out_dim = multi_dense(h, 2*n_lstm_dim_layers[-1], num_dense, 'dense', self.keep_prob, max_norm)
             
         else:
             
-            print(' --- Plain RNN using no attention:  ')
+            print(' --- Plain RNN using NO attention:  ')
             
             # obtain the last hidden state
             tmp_hiddens = tf.transpose( h, [1,0,2] )
             h = tmp_hiddens[-1]
             
             # dropout
-            h, regu_dense = plain_dense( h, n_lstm_dim_layers[-1], n_dense_dim_layers, 'dense', \
-                                        tf.gather(self.keep_prob, 0), max_norm )
+            h, regu_dense = plain_dense(h, n_lstm_dim_layers[-1], n_dense_dim_layers, 'dense', self.keep_prob, max_norm )
             
-            #?
-            self.regularization = l2_dense*regu_dense
-            
-        #dropout
-        #h = tf.nn.dropout(h, tf.gather(self.keep_prob, 1))
+        self.regularization = l2_dense*regu_dense
+        
+        if bool_regular_dropout_output == True:
+            h = tf.nn.dropout(h, self.keep_prob)
+        
         
         with tf.variable_scope("output"):
             
-            w = tf.get_variable('w', shape=[out_dim, 1],\
-                                     initializer=tf.contrib.layers.xavier_initializer())
-            b = tf.Variable(tf.zeros( [ 1 ] ))
+            w = tf.get_variable('w', shape=[out_dim, 1], initializer=tf.contrib.layers.xavier_initializer())
+            b = tf.Variable(tf.zeros([1]))
             
             self.py = tf.matmul(h, w) + b
             
             # regularization
-            # ?
             self.regularization += l2_dense*tf.nn.l2_loss(w)
             
+            
+        # ---- regularization
+        
+        if bool_regular_attention == True:
+            
+            self.regularization += 0.1*l2_dense*(regu_att)
+        
+        if bool_regular_lstm == True:
+            
+            self.regul_lstm = sum(tf.nn.l2_loss(tf_var) for tf_var in tf.trainable_variables() if ("lstm" in tf_var.name))
+            self.regularization += 0.1*l2_dense*self.regul_lstm
+    
+    
     def train_ini(self):
         
         # loss function 
@@ -135,6 +143,7 @@ class tsLSTM_plain():
     
     def test_attention(self, x_test, y_test, keep_prob):
         return self.sess.run( self.att,  feed_dict = {self.x:x_test, self.y:y_test, self.keep_prob:keep_prob})
+    
     
     
 # ---- separate RNN ----
@@ -378,8 +387,8 @@ class tsLSTM_mv():
                  dense_regul_type, layer_norm_type, num_mv_dense, ke_type, mv_rnn_gate_type,
                  bool_regular_lstm, bool_regular_attention, bool_regular_dropout_output,\
                  vari_attention_after_mv_desne,\
-                 add_regu_vari_impt,\
-                 add_regu_vari_impt_logits):
+                 learning_vari_impt
+                 ):
         
         '''
         Args:
@@ -430,9 +439,7 @@ class tsLSTM_mv():
         
         vari_attention_after_temp: if variable attention after the multi-mv-dense
         
-        add_regu_vari_impt: add the global variable importance regularization
-        
-        add_regu_vari_impt_logits: regularization on the logits of vari_impt
+        learning_vari_impt: add the global variable importance learning process
         
         Returns:
         
@@ -464,9 +471,19 @@ class tsLSTM_mv():
         
         # trainable variables 
         # [1 V 1]
-        self.vari_impt_logits = tf.get_variable('vari_impt_logits', [1, self.N_DATA_DIM, 1],\
-                                        initializer=tf.contrib.layers.xavier_initializer())
+        self.vari_impt_logits = tf.get_variable('vari_impt_logits_mean', [1, self.N_DATA_DIM, 1],\
+                                                initializer = tf.contrib.layers.xavier_initializer())
         
+        # [1 V]
+        self.vari_impt_logits_sd = tf.get_variable('vari_impt_logits_sd', [1, self.N_DATA_DIM],\
+                                                initializer = tf.contrib.layers.xavier_initializer())
+        
+        # [1 V]
+        self.vari_impt_logits_sd_inv = tf.get_variable('vari_impt_logits_sd_inv', [1, self.N_DATA_DIM],\
+                                                initializer = tf.contrib.layers.xavier_initializer())
+        
+                                                # tf.initializers.ones()
+                                                # tf.contrib.layers.xavier_initializer())
         # residual connections
         if bool_residual == True:
             
@@ -629,7 +646,7 @@ class tsLSTM_mv():
                 # [V B D]
                 h_last_vari = tf.split(h_last, [int(n_lstm_dim_layers[0]/self.N_DATA_DIM)]*self.N_DATA_DIM, 1)
                 
-                # --- intermediate multiple mv-dense layers
+                # --- intermediate mulvari_impt_logitstiple mv-dense layers
                 # [V B D] -> [V B d]
                 
                 interm_var_dim = int(n_lstm_dim_layers[-1]/self.N_DATA_DIM)*2
@@ -772,20 +789,168 @@ class tsLSTM_mv():
                                                                                         'att_vari', 
                                                                                         self.N_DATA_DIM, 
                                                                                         vari_attention_type)
-                # ---- variable importance regularization
+                    
+                    
+                # ---- importance learning
                 
-                w_vari_impt = tf.get_variable('w_vari_impt', [1,], initializer=tf.contrib.layers.xavier_initializer())
+                # -- clipped
+                clipped_vari_impt_logits = tf.assign(self.vari_impt_logits,\
+                                                     tf.clip_by_norm(self.vari_impt_logits, clip_norm = 5.0, axes = [1]))
+                
+                clipped_vari_logits = tf.clip_by_norm(vari_logits, clip_norm = 5.0, axes = [1])
                 
                 # [B] <- [B V 1] - [1 V 1]
+                cliped_logits_diff_sq = tf.reduce_sum(\
+                                        tf.square(tf.squeeze(clipped_vari_logits - self.vari_impt_logits, [2])), 1)
+                
+                
+                # -- plain l2 diff
                 logits_diff_sq = tf.reduce_sum(tf.square(tf.squeeze(vari_logits - self.vari_impt_logits, [2])), 1)
+                
+                
+                # -- normalized l2 diff
+                # [B 1 1]
+                norm_vari_logits = tf.sqrt(tf.reduce_sum(tf.square(vari_logits), 1, keepdims = True))
+                # [1 1 1]
+                norm_impt_logits = tf.sqrt(tf.reduce_sum(tf.square(self.vari_impt_logits), 1, keepdims = True))
+                
+                norm_logits_diff_sq = tf.reduce_sum(tf.square(tf.squeeze(\
+                                      vari_logits/norm_vari_logits - self.vari_impt_logits/norm_impt_logits, [2])), 1)
+                
+                # -- exp
+                
+                logits_diff_exp = tf.reduce_sum(tf.square(\
+                                      tf.squeeze(tf.exp(vari_logits) - tf.exp(self.vari_impt_logits), [2])), 1)
+                
+                # -- softmax diff
+                
+                softmax_impt = tf.nn.softmax(tf.squeeze(self.vari_impt_logits, [2]))
+                softmax_vari = tf.nn.softmax(tf.squeeze(vari_logits, [2]))
+                
+                logits_diff_softmax = tf.reduce_sum(tf.square(softmax_impt - softmax_vari), 1)
+                
+                # -- importance value
                 self.vari_impt = tf.nn.softmax(tf.squeeze(self.vari_impt_logits))
                 
-                # ?
-                regu_vari_impt = tf.reduce_sum(logits_diff_sq)
+                # --
                 
-                if add_regu_vari_impt_logits == True:
-                    regu_vari_impt += tf.nn.l2_loss(self.vari_impt_logits) 
-                                               
+                if learning_vari_impt == "log_sigmoid_pos":
+                    
+                    print("\n    !!!    Using ",  "log_sigmoid_pos", '\n')
+                    
+                    sigmoid_logits_diff = tf.nn.sigmoid(logits_diff_sq)
+                    loss_vari_impt = 1.0*tf.reduce_sum(tf.log(sigmoid_logits_diff))
+                    
+                
+                elif learning_vari_impt == "log_sigmoid_neg":
+                    
+                    print("\n    !!!    Using ",  "log_sigmoid_neg", '\n')
+                    
+                    sigmoid_logits_diff = tf.nn.sigmoid(logits_diff_sq)
+                    loss_vari_impt = -1.0*tf.reduce_sum(tf.log(sigmoid_logits_diff))
+                
+                
+                elif learning_vari_impt == "sigmoid_pos":
+                    
+                    print("\n    !!!    Using ",  "sigmoid_pos", '\n')
+                    
+                    sigmoid_logits_diff = tf.nn.sigmoid(logits_diff_sq)
+                    loss_vari_impt = 1.0*tf.reduce_sum(sigmoid_logits_diff)
+                
+                
+                elif learning_vari_impt == "softmax":
+                    
+                    print("\n    !!!    Using ",  "softmax", '\n')
+                    
+                    # the plain one
+                    loss_vari_impt = tf.reduce_sum(logits_diff_softmax) + tf.nn.l2_loss(self.vari_impt_logits) 
+                    
+                    # ?
+                    self.logits_diff = tf.reduce_sum(logits_diff_softmax)
+                    self.impt_norm = tf.nn.l2_loss(self.vari_impt_logits)
+                    self.clipped_impt_norm = tf.nn.l2_loss(self.vari_impt_logits)
+                
+                
+                elif learning_vari_impt == "exp":
+                    
+                    print("\n    !!!    Using ",  "exp", '\n')
+                    
+                    # the plain one
+                    loss_vari_impt = tf.reduce_sum(logits_diff_exp) + tf.nn.l2_loss(self.vari_impt_logits) 
+                    
+                    # ?
+                    self.logits_diff = tf.reduce_sum(logits_diff_exp)
+                    self.impt_norm = tf.nn.l2_loss(self.vari_impt_logits)
+                    self.clipped_impt_norm = tf.nn.l2_loss(self.vari_impt_logits)
+                
+                
+                elif learning_vari_impt == "gaussian":
+                    
+                    print("\n    !!!    Using ",  "gaussian", '\n')
+                    
+                    # the plain one
+                    loss_vari_impt = tf.reduce_sum(logits_diff_sq) + tf.nn.l2_loss(self.vari_impt_logits) 
+                    
+                    # ?
+                    self.logits_diff = tf.reduce_sum(logits_diff_sq)
+                    self.impt_norm = tf.nn.l2_loss(self.vari_impt_logits)
+                    self.clipped_impt_norm = tf.nn.l2_loss(self.vari_impt_logits)
+                    
+                elif learning_vari_impt == "gaussian_norm":
+                    
+                    print("\n    !!!    Using ",  "gaussian_norm", '\n')
+                    
+                    # the plain one
+                    loss_vari_impt = tf.reduce_sum(norm_logits_diff_sq) + tf.nn.l2_loss(self.vari_impt_logits) 
+                    
+                    # ?
+                    self.logits_diff = tf.reduce_sum(norm_logits_diff_sq)
+                    self.impt_norm = tf.nn.l2_loss(self.vari_impt_logits) 
+                    self.clipped_impt_norm = tf.nn.l2_loss(self.vari_impt_logits) 
+                    
+                    
+                elif learning_vari_impt == "gaussian_one":
+                    
+                    print("\n    !!!    Using ",  "gaussian_one", '\n')
+                    
+                    tmp_log_constant = tf.log(1.0/(2.0*np.pi)**0.5)
+                    
+                    tmp_log_energy = -0.5*logits_diff_sq
+                    
+                    loss_vari_impt = -1.0*tf.reduce_sum(tmp_log_constant + tmp_log_energy)
+                    
+                    
+                elif learning_vari_impt == "gaussian_variance":
+                    
+                    print("\n    !!!    Using ",  "gaussian_variance", '\n')
+                    
+                    # -- inverse of standard deviation
+                    
+                    tmp_log_constant = tf.log(1.0/(2.0*np.pi)**0.5)
+                    
+                    tmp_log_var = 0.5*tf.reduce_sum(tf.log(tf.square(self.vari_impt_logits_sd_inv)))
+                    
+                    # [B V 1] - [1 V 1] -> [B V]/[1 V] -> [B]
+                    tmp_log_energy = -0.5*\
+                    tf.reduce_sum(tf.square(tf.squeeze(vari_logits - clipped_vari_impt_logits,[2])) * \
+                                  tf.square(self.vari_impt_logits_sd_inv), 1)
+                    
+                    loss_vari_impt = -1.0*tf.reduce_sum(tmp_log_constant + tmp_log_var + tmp_log_energy)
+                    
+                    '''
+                    # -- standard deviation
+                    
+                    # [1 V] -> [1]
+                    tmp_normalizer = (2.0*np.pi*tf.reduce_sum(tf.square(self.vari_impt_logits_sd), 1))**0.5 + 1e-5
+                    
+                    # [B V 1] - [1 V 1] -> [B V]/[1 V] -> [B]
+                    tmp_energy = tf.exp(-0.5*\
+     tf.reduce_sum( tf.squa0re(tf.squeeze(vari_logits-self.vari_impt_logits,[2]))/(tf.square(vari_impt_logits_sd)+1e-5), 1))
+                    '''
+                    
+                elif learning_vari_impt == '':
+                    loss_vari_impt = 0.0
+                
                 
                 # ---- individual prediction
                 
@@ -825,17 +990,22 @@ class tsLSTM_mv():
                 # [B V]
                 tmp_mean = tf.transpose(tf.squeeze(h_mean, [2]), [1,0]) 
                 tmp_var  = tf.transpose(tf.squeeze(h_var,  [2]), [1,0])
+                tmp_var_inv  = tf.transpose(tf.squeeze(h_var,  [2]), [1,0])
                 
-                # ?
                 # [B V]
                 tmp_llk = tf.exp(-0.5*tf.square(y_tile - tmp_mean)/(tmp_var + 1e-5))/(2.0*np.pi*(tmp_var + 1e-5))**0.5
                 llk = tf.multiply( tmp_llk, tf.squeeze(self.att_vari, [2]) ) 
                 self.neg_logllk = tf.reduce_sum(-1.0*tf.log(tf.reduce_sum(llk, 1)+1e-5))
                 
+                # [B V]
+                tmp_llk_inv = tf.exp(-0.5*tf.square(y_tile - tmp_mean)*tmp_var_inv)/(2.0*np.pi)**0.5*(tmp_var_inv**0.5)
+                llk_inv = tf.multiply(tmp_llk_inv, tf.squeeze(self.att_vari, [2])) 
+                self.neg_logllk_inv = tf.reduce_sum(-1.0*tf.log(tf.reduce_sum(llk_inv, 1)+1e-5))
+                
                 # ?
-                tmp_pseudo_llk = tf.exp( -0.5*tf.square(y_tile - tmp_mean) )/(2.0*np.pi)**0.5
-                pseudo_llk = tf.multiply( tmp_pseudo_llk, tf.squeeze(self.att_vari, [2]) ) 
-                self.pseudo_neg_logllk = tf.reduce_sum( -1.0*tf.log(tf.reduce_sum(pseudo_llk, 1)+1e-5) )
+                tmp_pseudo_llk = tf.exp(-0.5*tf.square(y_tile - tmp_mean))/(2.0*np.pi)**0.5
+                pseudo_llk = tf.multiply(tmp_pseudo_llk, tf.squeeze(self.att_vari, [2])) 
+                self.pseudo_neg_logllk = tf.reduce_sum(-1.0*tf.log(tf.reduce_sum(pseudo_llk, 1)+1e-5))
                 
                 
                 # ---- knowledge extraction
@@ -850,7 +1020,7 @@ class tsLSTM_mv():
                 # [V 1]
                 var_sum_w = tf.reduce_sum(var_temp_w, 1, keepdims = True)
                 # [V T-1]
-                self.ke_temp = var_temp_w / var_sum_w
+                self.ke_temp = 1.0*var_temp_w / var_sum_w
                 
                 
                 # -- prior variable 
@@ -862,7 +1032,7 @@ class tsLSTM_mv():
                 var_w_prior = tf.squeeze(tf.reduce_sum(self.att_vari, 0))
                 # 1
                 sum_w_prior = tf.reduce_sum(var_w_prior)
-                self.ke_var_prior = var_w_prior / sum_w_prior
+                self.ke_var_prior = 1.0*var_w_prior / sum_w_prior
                 
                 
                 # -- posterior variable 
@@ -890,19 +1060,20 @@ class tsLSTM_mv():
                 # 1
                 sum_w_posterior = tf.reduce_sum(tmp_posterior)
                 
-                
                 self.ke_var_posterior = 1.0*var_w_posterior / sum_w_posterior
                 
-                
                 # ---- regularization
+                
                 # ?
                 self.regularization = l2_dense*mv_dense_regu 
                 
                 if bool_regular_attention == True:
                     self.regularization += 0.1*l2_dense*(regu_att_temp + regu_att_vari)
+                
+                # ?
+                if learning_vari_impt != '' :
                     
-                if add_regu_vari_impt == True:
-                    self.regularization += 0.1*l2_dense*(regu_vari_impt)
+                    self.regularization += loss_vari_impt
                 
         
             elif att_type == 'both-fusion':
@@ -1017,7 +1188,12 @@ class tsLSTM_mv():
             
             # ? 
             self.loss = self.mse + self.regularization
+        
+        elif self.loss_type == 'lk_inv':
             
+            # ? 
+            self.loss = self.neg_logllk_inv + self.regularization
+
         elif self.loss_type == 'lk':
             
             # ? 
@@ -1028,6 +1204,7 @@ class tsLSTM_mv():
             self.loss = self.pseudo_neg_logllk + self.regularization
             
         else:
+            
             print('--- [ERROR] loss type')
             return
         
@@ -1069,7 +1246,10 @@ class tsLSTM_mv():
 #   inference givn data    
     def inference(self, x, y, keep_prob):
         
-        return self.sess.run([self.py, self.rmse, self.mae, self.mape, self.vari_impt], 
+        
+        
+        return self.sess.run([self.py, self.rmse, self.mae, self.mape, self.vari_impt, self.logits_diff, self.impt_norm,\
+                              self.clipped_impt_norm], 
                              feed_dict = {self.x:x, self.y:y, self.keep_prob:keep_prob})
     
     def predict(self, x, y, keep_prob):

@@ -26,7 +26,9 @@ tf.set_random_seed(1)
 Arguments:
 
 dataset_str: name of the dataset
-method_str: name of the neural network 
+method_str: name of the neural network
+impt_str: variable importance learning 
+
 
 '''
 
@@ -40,6 +42,8 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "5"
 # parameters from command line
 dataset_str = str(sys.argv[1])
 method_str = str(sys.argv[2])
+
+impt_str = str(sys.argv[3])
 
 # parameters from config files
 import json
@@ -92,17 +96,19 @@ para_rnn_gate_type = "full" if method_str == 'mv_full' else 'tensor'
 para_lstm_dims_mv = hidden_dim_dic[dataset_str] 
 
 # attention
-para_attention_mv = attention_dic[method_str] # temp, var, var-pre, both-att, both-pool, vari-mv-output'
+para_attention_mv = attention_dic[method_str] # temp, var, var-pre, both-att, both-pool, vari-mv-output
 para_temp_attention_type = 'temp_loc' # loc, concate
 para_temp_decay_type = ''  # cutoff
 para_vari_attention_type = 'vari_loc_all'
 para_vari_attention_after_mv_desne = False
 
-para_add_regu_vari_impt = True
-para_add_regu_vari_impt_logits = True
+para_vari_impt_learning = impt_str
+# sigmoid_pos, sigmoid_neg, gaussian, gaussian_variance, ''
 
-para_loss_type = 'lk' # mse, lk: likelihood, pseudo_lk 
-para_ke_type = 'aggre_posterior' # base_posterior, base_prior
+para_loss_type = loss_dic[dataset_str]
+# lk, mse, lk: likelihood, pseudo_lk 
+para_ke_type = 'aggre_posterior' 
+# base_posterior, base_prior
 
 
 # ------ utility functions ------
@@ -154,8 +160,8 @@ def train_nn(num_dense, l2_dense, dropout_keep_prob, log_file, ke_pickle, pred_p
                             para_bool_regular_attention,
                             para_bool_regular_dropout_output,
                             para_vari_attention_after_mv_desne,
-                            para_add_regu_vari_impt,
-                            para_add_regu_vari_impt_logits)
+                            para_vari_impt_learning
+                            )
             
         elif method_str == 'mv_tensor':
             
@@ -175,8 +181,8 @@ def train_nn(num_dense, l2_dense, dropout_keep_prob, log_file, ke_pickle, pred_p
                             para_bool_regular_attention,
                             para_bool_regular_dropout_output,
                             para_vari_attention_after_mv_desne,
-                            para_add_regu_vari_impt,
-                            para_add_regu_vari_impt_logits)
+                            para_vari_impt_learning
+                            )
             
         else:
             print('\n\n [ ERROR] method_str \n\n')
@@ -213,11 +219,12 @@ def train_nn(num_dense, l2_dense, dropout_keep_prob, log_file, ke_pickle, pred_p
             
             # -- batch training
             
+            # re-shuffle training data
             np.random.shuffle(total_idx)
             
             for i in range(iter_per_epoch):
                 
-                # shuffle training data
+                # batch training data
                 batch_idx = total_idx[ i*para_batch_size_mv: min((i+1)*para_batch_size_mv, total_cnt) ] 
                 batch_x = xtrain[ batch_idx ]
                 batch_y = ytrain[ batch_idx ]            
@@ -247,10 +254,15 @@ def train_nn(num_dense, l2_dense, dropout_keep_prob, log_file, ke_pickle, pred_p
             
             if para_attention_mv == 'both-att':
                 
+                # ?
+                
                 # [self.y_hat, self.rmse, self.mae, self.mape]
                 # [B V T-1], [B V]
                 # dropout probability set to 1.0
-                yh, rmse_epoch, mae_epoch, mape_epoch, vari_impt = reg.inference(xval, yval, 1.0)
+                yh, rmse_epoch, mae_epoch, mape_epoch, vari_impt, logits_diff, impt_norm, clipped_impt_norm = \
+                reg.inference(xval, yval, 1.0)
+                    
+                
                     
                 # knowledge extraction
                 # dropout probability set to 1.0
@@ -275,7 +287,8 @@ def train_nn(num_dense, l2_dense, dropout_keep_prob, log_file, ke_pickle, pred_p
             print("\n --- At epoch %d : \n    %s, %d "%(epoch, str(epoch_error[-1][1:]), ed_time_epoch - st_time_epoch))
             
             # ?
-            print("\n                 :  %s  "%(str(vari_impt)))
+            print("\n     %s  "%(str(vari_impt)))
+            print("\n     %s  %s %s"%(str(logits_diff), str(impt_norm), str(clipped_impt_norm)))
             
             
             with open(log_file, "a") as text_file:
@@ -317,8 +330,7 @@ def log_func(text_file):
     text_file.write("regularization on attention : %s \n"%(para_bool_regular_attention))
     text_file.write("dropout before the outpout layer : %s \n"%(para_bool_regular_dropout_output))
     text_file.write("variable attention after mv_desne : %s \n"%(para_vari_attention_after_mv_desne))
-    text_file.write("add variable importance learning as regularization : %s \n"%(para_add_regu_vari_impt))
-    text_file.write("add variable importance logits regularization : %s \n\n"%(para_add_regu_vari_impt_logits))
+    text_file.write("variable importance learning : %s \n\n"%(para_vari_impt_learning))
     
     return
 
@@ -353,10 +365,11 @@ if __name__ == '__main__':
     validate_tuple = []
     
     #for para_lr_mv in [0.001, 0.002, 0.005]
-    for tmp_num_dense in [1]:
-        for tmp_keep_prob in [1.0, 0.8, 0.5]:
+    for tmp_num_dense in [0, 1]:
+        for tmp_keep_prob in [1.0, 0.8]:
             for tmp_l2 in [0.00001, 0.0001, 0.001, 0.01]:
                 
+                # log: epoch errors
                 with open(log_epoch_file, "a") as text_file:
                     text_file.write("\n num_dense: %d, keep_prob: %f, l2: %f \n"%(tmp_num_dense, tmp_keep_prob, tmp_l2))
                 
