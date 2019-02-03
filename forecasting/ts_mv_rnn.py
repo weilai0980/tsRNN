@@ -12,18 +12,40 @@ from tensorflow.python.ops.rnn_cell_impl import *
 from mv_rnn_cell import *
 from utils_libs import *
 from ts_mv_rnn_attention import *
-from ts_mv_rnn_basics import *
+from ts_mv_rnn_layers import *
 
 # ---- plain RNN ----
 
 class tsLSTM_plain():
     
-    def __init__(self, n_lstm_dim_layers, n_steps, n_data_dim, session,\
+    def __init__(self, session):
+        
+        self.LEARNING_RATE = 0.0
+        self.L2 = 0.0
+        
+        self.n_lstm_dim_layers = 0.0
+        
+        self.N_STEPS = 0.0
+        self.N_DATA_DIM = 0.0
+        
+        self.att_type = 0.0
+        
+        # placeholders
+        self.x = 0.0
+        self.y = 0.0
+        self.keep_prob = 0.0
+        
+        self.sess = session
+        
+    
+    def network_ini(self, n_lstm_dim_layers, n_steps, n_data_dim,\
                  lr, l2_dense, max_norm, bool_residual, att_type, l2_att, num_dense, \
                  bool_regular_attention, bool_regular_lstm, bool_regular_dropout_output):
         
+        # ---- ini
+        
         self.LEARNING_RATE = lr
-        self.L2 =  l2
+        self.L2 =  l2_dense
         
         self.n_lstm_dim_layers = n_lstm_dim_layers
         
@@ -33,13 +55,11 @@ class tsLSTM_plain():
         self.att_type = att_type
         
         # placeholders
-        self.x = tf.placeholder(tf.float32, [None, self.N_STEPS, self.N_DATA_DIM])
-        self.y = tf.placeholder(tf.float32, [None, 1])
-        self.keep_prob = tf.placeholder(tf.float32, shape = ())
+        self.x = tf.placeholder(tf.float32, [None, self.N_STEPS, self.N_DATA_DIM], name='x')
+        self.y = tf.placeholder(tf.float32, [None, 1], name='y')
+        self.keep_prob = tf.placeholder(tf.float32, shape = (), name='keep_prob')
         
         # ---- network architecture 
-        
-        self.sess = session
         
         h, _ = plain_lstm(self.x, n_lstm_dim_layers, 'lstm', self.keep_prob)
         
@@ -62,13 +82,13 @@ class tsLSTM_plain():
             h = tmp_hiddens[-1]
             
             # dropout
-            h, regu_dense = plain_dense(h, n_lstm_dim_layers[-1], n_dense_dim_layers, 'dense', self.keep_prob, max_norm )
+            h, regu_dense, out_dim = multi_dense(h, n_lstm_dim_layers[-1], num_dense, 'dense', self.keep_prob, max_norm)
             
         self.regularization = l2_dense*regu_dense
         
+        # dropout before the output layer
         if bool_regular_dropout_output == True:
             h = tf.nn.dropout(h, self.keep_prob)
-        
         
         with tf.variable_scope("output"):
             
@@ -77,7 +97,7 @@ class tsLSTM_plain():
             
             self.py = tf.matmul(h, w) + b
             
-            # regularization
+            # l2 regularization
             self.regularization += l2_dense*tf.nn.l2_loss(w)
             
             
@@ -90,6 +110,7 @@ class tsLSTM_plain():
         if bool_regular_lstm == True:
             
             self.regul_lstm = sum(tf.nn.l2_loss(tf_var) for tf_var in tf.trainable_variables() if ("lstm" in tf_var.name))
+            
             self.regularization += 0.1*l2_dense*self.regul_lstm
     
     
@@ -130,20 +151,42 @@ class tsLSTM_plain():
         
         self.mape = tf.reduce_mean( tf.abs((y_mask - y_hat_mask)*1.0/(y_mask+1e-10)) )
 
-#   infer givn testing data
+#   inference givn testing data
     def inference(self, x_test, y_test, keep_prob):
+        
+        # predicting by pre-trained models
+        tf.add_to_collection("pred", self.py)
+        tf.add_to_collection("rmse", self.rmse)
+        tf.add_to_collection("mae", self.mae)
+        tf.add_to_collection("mape", self.mape)
         
         return self.sess.run([self.py, self.rmse, self.mae, self.mape], \
                              feed_dict = {self.x:x_test, self.y:y_test, self.keep_prob:keep_prob})
-        
-        
     
+    # restore the model from the files
+    def pre_train_restore_model(self, path_meta, path_data):
+        
+        saver = tf.train.import_meta_graph(path_meta, clear_devices=True)
+        saver.restore(self.sess, path_data)
+        
+        return 0
+        
+    # inference using pre-trained model 
+    def pre_train_inference(self, x_test, y_test, keep_prob):
+        
+        return self.sess.run([tf.get_collection('pred')[0],
+                              tf.get_collection('rmse')[0],
+                              tf.get_collection('mae')[0],
+                              tf.get_collection('mape')[0]],
+                              {'x:0': x_test, 'y:0': y_test, 'keep_prob:0': keep_prob})
+        
+    '''
     def predict(self, x_test, y_test, keep_prob):
         return self.sess.run([self.py], feed_dict = {self.x:x_test, self.y:y_test, self.keep_prob:keep_prob})
     
     def test_attention(self, x_test, y_test, keep_prob):
         return self.sess.run( self.att,  feed_dict = {self.x:x_test, self.y:y_test, self.keep_prob:keep_prob})
-    
+    '''
     
     
 # ---- separate RNN ----
@@ -380,7 +423,39 @@ RNN Regularization:
 
 class tsLSTM_mv():
     
-    def __init__(self, n_lstm_dim_layers, n_steps, n_data_dim, session,\
+    def __init__(self, session):
+        
+        self.LEARNING_RATE = 0.0
+
+        self.n_lstm_dim_layers = 0.0
+        
+        self.N_STEPS = 0.0
+        self.N_DATA_DIM = 0.0
+        
+        self.loss_type = 0.0
+        self.att_type = 0.0
+        
+        # placeholders
+        self.x = 0
+        self.y = 0
+        self.keep_prob = 0
+        
+        self.sess = session
+        
+        self.lr = 0
+        #tf.Variable(lr, trainable = False)
+        self.new_lr = 0
+        
+        # trainable variables 
+        # [1 V 1]
+        self.vari_impt_logits = 0
+        # [1 V]
+        self.vari_impt_logits_sd = 0
+        # [1 V]
+        self.vari_impt_logits_sd_inv = 0
+        
+    
+    def network_ini(self, n_lstm_dim_layers, n_steps, n_data_dim, session,\
                  lr, max_norm, bool_residual, \
                  att_type, temp_decay_type, temp_attention_type, \
                  l2_dense, l2_att, vari_attention_type, loss_type, \
@@ -456,17 +531,17 @@ class tsLSTM_mv():
         self.att_type = att_type
         
         # placeholders
-        self.x = tf.placeholder(tf.float32, [None, self.N_STEPS, self.N_DATA_DIM])
-        self.y = tf.placeholder(tf.float32, [None, 1])
-        self.keep_prob = tf.placeholder(tf.float32, shape =() )
+        self.x = tf.placeholder(tf.float32, [None, self.N_STEPS, self.N_DATA_DIM], name = 'x')
+        self.y = tf.placeholder(tf.float32, [None, 1], name = 'y')
+        self.keep_prob = tf.placeholder(tf.float32, shape =(), name = 'keep_prob')
         
-        steps = tf.constant( list(range(self.N_STEPS-2, -1, -1)), dtype=tf.float32 )
-        alpha = tf.constant( 0.2, dtype=tf.float32 )
-        # begin to build the graph
+        steps = tf.constant( list(range(self.N_STEPS-2, -1, -1)), dtype=tf.float32)
+        #alpha = tf.constant( 0.2, dtype=tf.float32 )
+        
         self.sess = session
         
-        self.lr = lr
-        #tf.Variable(lr, trainable = False)
+        self.lr = tf.Variable(lr, trainable = False)
+        #self.lr = lr
         self.new_lr = tf.placeholder(tf.float32, shape = (), name = 'new_lr')
         
         # trainable variables 
@@ -476,14 +551,18 @@ class tsLSTM_mv():
         
         # [1 V]
         self.vari_impt_logits_sd = tf.get_variable('vari_impt_logits_sd', [1, self.N_DATA_DIM],\
-                                                initializer = tf.contrib.layers.xavier_initializer())
+                                                   initializer = tf.contrib.layers.xavier_initializer())
         
         # [1 V]
         self.vari_impt_logits_sd_inv = tf.get_variable('vari_impt_logits_sd_inv', [1, self.N_DATA_DIM],\
-                                                initializer = tf.contrib.layers.xavier_initializer())
+                                                       initializer = tf.contrib.layers.xavier_initializer())
         
                                                 # tf.initializers.ones()
                                                 # tf.contrib.layers.xavier_initializer())
+        
+        
+        # ---- begin to build the graph
+        
         # residual connections
         if bool_residual == True:
             
@@ -1013,7 +1092,7 @@ class tsLSTM_mv():
                 # attention summarization 
                 # self.att_temp: [V B T-1] self.att_vari: [B V 1]
                 
-                # variable-wise temporal 
+                # -- variable-wise temporal 
                     
                 # [V T-1]
                 var_temp_w = tf.reduce_sum(self.att_temp, 1)
@@ -1109,13 +1188,13 @@ class tsLSTM_mv():
                 
                 # temporal attention
                 # h_temp [V B 2D]
-                h_temp, regu_att_temp, self.att_temp = mv_attention_temp(h_att_temp_input,\
-                                                                         int(n_lstm_dim_layers[0]/self.N_DATA_DIM),\
-                                                                         'att_temp', \
-                                                                         self.N_STEPS, \
-                                                                         steps, \
-                                                                         temp_decay_type,\
-                                                                         temp_attention_type, \
+                h_temp, regu_att_temp, self.att_temp = mv_attention_temp(h_att_temp_input,
+                                                                         int(n_lstm_dim_layers[0]/self.N_DATA_DIM),
+                                                                         'att_temp',
+                                                                         self.N_STEPS,
+                                                                         steps,
+                                                                         temp_decay_type,
+                                                                         temp_attention_type,
                                                                          self.N_DATA_DIM)
                 
                 # ? dropout
@@ -1124,20 +1203,20 @@ class tsLSTM_mv():
                 
                 # variable attention 
                 # [B 2D]
-                h_vari, regu_att_vari, self.att_vari = mv_attention_variate(h_att_vari_input,\
-                                                                            2*int(n_lstm_dim_layers[0]/self.N_DATA_DIM),\
-                                                                            'att_vari',\
-                                                                            self.N_DATA_DIM,\
+                h_vari, regu_att_vari, self.att_vari = mv_attention_variate(h_att_vari_input,
+                                                                            2*int(n_lstm_dim_layers[0]/self.N_DATA_DIM),
+                                                                            'att_vari',
+                                                                            self.N_DATA_DIM,
                                                                             vari_attention_type)
                 # ---- plain dense layers
                 # [B 2D]
                 
                 # dropout
-                h, regu_dense, out_dim = multi_dense(h_vari, \
-                                                     2*int(n_lstm_dim_layers[-1]/self.N_DATA_DIM), \
-                                                     num_mv_dense, \
-                                                     'dense', \
-                                                     self.keep_prob, \
+                h, regu_dense, out_dim = multi_dense(h_vari,
+                                                     2*int(n_lstm_dim_layers[-1]/self.N_DATA_DIM),
+                                                     num_mv_dense,
+                                                     'dense',
+                                                     self.keep_prob,
                                                      max_norm)
                 
                 # ? dropout
@@ -1146,7 +1225,7 @@ class tsLSTM_mv():
                 
                 with tf.variable_scope("output"):
                     
-                    w = tf.get_variable('w', shape=[out_dim, 1],\
+                    w = tf.get_variable('w', shape=[out_dim, 1],
                                         initializer=tf.contrib.layers.xavier_initializer())
                     b = tf.Variable(tf.zeros( [ 1 ] ))
             
@@ -1221,9 +1300,9 @@ class tsLSTM_mv():
             self.lr_update = tf.assign(self.lr, self.new_lr)
             _ = self.sess.run([self.lr_update], feed_dict={self.new_lr:lr})
         
-        _, tmp_loss, tmp_sqsum = self.sess.run([self.optimizer, self.loss, self.square_error],\
-                                               feed_dict = {self.x:x_batch, \
-                                                            self.y:y_batch, \
+        _, tmp_loss, tmp_sqsum = self.sess.run([self.optimizer, self.loss, self.square_error],
+                                               feed_dict = {self.x:x_batch,
+                                                            self.y:y_batch,
                                                             self.keep_prob:keep_prob })
         return tmp_loss, tmp_sqsum
 
@@ -1246,10 +1325,14 @@ class tsLSTM_mv():
 #   inference givn data    
     def inference(self, x, y, keep_prob):
         
+        # for restoring models
+        tf.add_to_collection("pred", self.py)
+        tf.add_to_collection("rmse", self.rmse)
+        tf.add_to_collection("mae", self.mae)
+        tf.add_to_collection("mape", self.mape)
+        tf.add_to_collection("vari_impt", self.vari_impt)
         
-        
-        return self.sess.run([self.py, self.rmse, self.mae, self.mape, self.vari_impt, self.logits_diff, self.impt_norm,\
-                              self.clipped_impt_norm], 
+        return self.sess.run([self.py, self.rmse, self.mae, self.mape, self.vari_impt], 
                              feed_dict = {self.x:x, self.y:y, self.keep_prob:keep_prob})
     
     def predict(self, x, y, keep_prob):
@@ -1260,8 +1343,15 @@ class tsLSTM_mv():
         
         if self.att_type == 'both-att':
             
-            # self.att_temp: [V B T-1] self.att_vari: [B V 1]
+            # for restoring models
+            tf.add_to_collection("att_temp", tf.transpose(self.att_temp, [1, 0, 2]))
+            tf.add_to_collection("att_prior", self.att_prior)
+            tf.add_to_collection("att_posterior", self.att_posterior)
+            tf.add_to_collection("ke_temp", self.ke_temp)
+            tf.add_to_collection("ke_var_prior", self.ke_var_prior)
+            tf.add_to_collection("ke_var_posterior", self.ke_var_posterior)
             
+            # self.att_temp: [V B T-1] self.att_vari: [B V 1]
             return self.sess.run([self.sumw, 
                                   tf.transpose(self.att_temp, [1, 0, 2]), 
                                   self.att_prior,
@@ -1270,8 +1360,8 @@ class tsLSTM_mv():
                                   self.ke_var_prior, 
                                   self.ke_var_posterior],
                                   feed_dict = {self.x:x, 
-                                              self.y:y, 
-                                              self.keep_prob:keep_prob})
+                                               self.y:y, 
+                                               self.keep_prob:keep_prob})
         elif self.att_type == 'both-fusion':
             
             # self.att_temp: [V B T-1] self.att_vari: [B V 1]
@@ -1283,3 +1373,21 @@ class tsLSTM_mv():
                                               self.keep_prob:keep_prob})
         else:
             return -1
+        
+        
+    # restore the model from the files
+    def pre_train_restore_model(self, path_meta, path_data):
+        
+        saver = tf.train.import_meta_graph(path_meta, clear_devices=True)
+        saver.restore(self.sess, path_data)
+        
+        return 0
+        
+    # inference using pre-trained model 
+    def pre_train_inference(self, x_test, y_test, keep_prob):
+        
+        return self.sess.run([tf.get_collection('pred')[0],
+                              tf.get_collection('rmse')[0],
+                              tf.get_collection('mae')[0],
+                              tf.get_collection('mape')[0]],
+                              {'x:0': x_test, 'y:0': y_test, 'keep_prob:0': keep_prob})

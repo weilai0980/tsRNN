@@ -27,6 +27,10 @@ hidden_dim_dic.update( {"sml_sub_full": [90]} )
 hidden_dim_dic.update( {"sml_sub_tensor": [90]} )
 hidden_dim_dic.update( {"sml_uni": [128]} )
 
+hidden_dim_dic.update( {"pm25": [140]} )
+hidden_dim_dic.update( {"pm25_sub": [140]} )
+hidden_dim_dic.update( {"pm25_impt": [140]} )
+
 
 # learning rate increases as network size 
 lr_dic = {}
@@ -54,12 +58,10 @@ lr_dic.update( {"nasdaq_sub_full": 0.05} )
 lr_dic.update( {"nasdaq_sub_tensor": 0.05} )
 lr_dic.update( {"nasdaq_uni": 0.05} )
 
-'''
-lr_dic.update( {"pm25": 0.002} )
-lr_dic.update( {"pm25": 0.002} )
-lr_dic.update( {"pm25_sub_full": 0.002} )
-lr_dic.update( {"pm25_sub_tensor": 0.002} )
-'''
+lr_dic.update( {"pm25": 0.005} )
+lr_dic.update( {"pm25_sub": 0.005} )
+lr_dic.update( {"pm25_impt": 0.005} )
+
 
 # batch size 
 batch_size_dic = {}
@@ -85,13 +87,9 @@ batch_size_dic.update( {"sml_sub_full": 32} )
 batch_size_dic.update( {"sml_sub_tensor": 32} )
 batch_size_dic.update( {"sml_uni": 32} )
 
-'''
-batch_size_dic.update( {"pm25": 32} )
-batch_size_dic.update( {"pm25": 32} )
-batch_size_dic.update( {"pm25_no_target": 32} )
-batch_size_dic.update( {"pm25_sub_full": 32} )
-batch_size_dic.update( {"pm25_sub_tensor": 32} )
-'''
+batch_size_dic.update( {"pm25": 64} )
+batch_size_dic.update( {"pm25_sub": 64} )
+batch_size_dic.update( {"pm25_impt": 64} )
 
 # max_norm contraints
 maxnorm_dic = {}
@@ -117,25 +115,16 @@ maxnorm_dic.update( {"nasdaq_sub_full": 5.0} )
 maxnorm_dic.update( {"nasdaq_sub_tensor": 5.0} )
 maxnorm_dic.update( {"nasdaq_uni": 5.0} )
 
-'''
-maxnorm_dic.update( {"pm25": 4.0} )
-maxnorm_dic.update( {"pm25_sub_full": 4.0} )
-maxnorm_dic.update( {"pm25_sub_tensor": 4.0} )
-'''
+maxnorm_dic.update( {"pm25": 5.0} )
+maxnorm_dic.update( {"pm25_sub": 5.0} )
+maxnorm_dic.update( {"pm25_impt": 5.0} )
 
 # attention type
 attention_dic = {}
-attention_dic.update( {"plain": "temp"} )
+attention_dic.update( {"plain": "temp"} ) # ""
 attention_dic.update( {"mv_full": "both-att"} )
 attention_dic.update( {"mv_tensor": "both-att"} )
 
-'''
-attention_dic.update( {"clstm": ""} )
-attention_dic.update( {"clstm_sub": ""} )
-
-attention_dic.update( {"sep": "both-att"} )
-attention_dic.update( {"sep_sub": "both-att"} )
-'''
 
 # loss type
 loss_dic = {}
@@ -159,3 +148,7 @@ loss_dic.update( {"sml_no_target": "mse"} )
 loss_dic.update( {"sml_sub_full": "mse"} )
 loss_dic.update( {"sml_sub_tensor": "mse"} )
 loss_dic.update( {"sml_uni": "mse"} )
+
+loss_dic.update( {"pm25": "mse"} )
+loss_dic.update( {"pm25_sub": "mse"} )
+loss_dic.update( {"pm25_impt": "mse"} )

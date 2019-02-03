@@ -88,6 +88,12 @@ effect of attention regularization
 
  learning rate decay
 
+   epoch log 
+
+   synthetic data 
+   https://archive.ics.uci.edu/ml/datasets/SML2010
+   
+   Stack mv lstm
 
 ---- Tuning tricks ----
 
@@ -124,6 +130,20 @@ regularization on attention
 dropout row/column mask 
 
 
+Multi-layer MV-LSTM
+
+Training and tesing importance value comparison, stablize variable importance across epoches 
+
+
+Model interpretation:
+   https://phys.org/news/2017-12-climate-conditions-affect-solar-cell.html
+   
+
+Memory mechanism:
+   some improvements on memory moduel in LSTM 
+   
+   
+
 ---- TO DO ----
 
 --
@@ -151,74 +171,34 @@ print(args.bar) # 0
 
 --
 
-to Modify / Test:
+MULTI-TASK 
 
-  attention:  
-     
-     attention regularization
-     
-     attenion on exgoneous variable taking into account the hiddens of the target variable 
-     
-     sparse attention on temporal
-     
-  Laplace posterior smoothing, KL-divergency and Laplace smoothing 
-  
-  experiments: noisy input variables
-  
-               compare with linear correlation, pearson 
-                             
-  optimization techniques:
-               
-               batch/layer normalization
+INTERPRETABILITY:
 
-Work to follow:
-  https://beenkim.github.io/
+  LIME
+  DeepLift
+  
+  SHARP
   
 
-Statistical computing:
-
-  https://dandelion.eu/datamine/open-big-data/
-
-  http://www.johnwittenauer.net/a-simple-time-series-analysis-of-the-sp-500-index/
-
-  http://nbviewer.jupyter.org/gist/ChadFulton/5127108f4c7025ed2648
-
-  Probabilistic Programming and Bayesian Methods for Hackers:
-  http://nbviewer.jupyter.org/github/CamDavidsonPilon/Probabilistic-Programming-and-Bayesian-Methods-for-     
-  Hackers/blob/master/Prologue/Prologue.ipynb
-
-
-Loss function:
-
-  corss-check varialbe ranking or network 
-
-  distributional loss: regression 
-  risk minimization 
-
-  llk + squared loss
-  quantile regression
-  earth mover distance
+NORMALIZATION:
   
-  point-wise loss
-  point-wise loss, loss reweight
- 
- 
-Reference:
-   feature/variable importance
+  batch normalization
+  weight normalization
 
-Paper write-up:
-   reference check
+
+ATTENTION:
+  
+  multi-head attention
+  
+
+EXPERIMENTS:
+
+   observe hidden state variation in RNN
    
-
-Experiments:
-
-   epoch log 
-
-   synthetic data 
-   https://archive.ics.uci.edu/ml/datasets/SML2010
+   only with dropout 
    
    layer normalization 
-   Stack mv lstm
    
    mv_lstm: hidden combination 
    
@@ -234,22 +214,80 @@ Experiments:
       1. temporal attention, variable attention, importance
       2. weight on the output layer
 
+   y_normalization function
+  
+   attention:  
+     
+     attention regularization
+     
+     attenion on exgoneous variable taking into account the hiddens of the target variable 
+     
+     sparse attention on temporal
+     
+  Laplace posterior smoothing, KL-divergency and Laplace smoothing 
+  
+  log-sum-exp trick
+  test mode
+  no dropout 
+  
+  experiments: noisy input variables  
+               compare with linear correlation, pearson 
+                             
+  optimization techniques:
+               batch/layer normalization
 
-Pre-processing:
+
+REFERENCE: 
+
+  https://beenkim.github.io/
+  feature/variable importance
+  
+
+STATISTIC:
+
+  https://ermongroup.github.io/cs228-notes/
+
+  https://dandelion.eu/datamine/open-big-data/
+
+  http://www.johnwittenauer.net/a-simple-time-series-analysis-of-the-sp-500-index/
+
+  http://nbviewer.jupyter.org/gist/ChadFulton/5127108f4c7025ed2648
+
+  Probabilistic Programming and Bayesian Methods for Hackers:
+  http://nbviewer.jupyter.org/github/CamDavidsonPilon/Probabilistic-Programming-and-Bayesian-Methods-for-     
+  Hackers/blob/master/Prologue/Prologue.ipynb
+
+
+LOSS FUNCTION:
+
+  corss-check varialbe ranking or network 
+
+  distributional loss: regression 
+  risk minimization 
+
+  llk + squared loss
+  quantile regression
+  earth mover distance
+  
+  point-wise loss
+  point-wise loss, loss reweight
+ 
+
+PRE-PROCESSING:
+
    outlier removal 
    autocorrelation order
 
-Post-processing:
+POST-PROCESSING:
+
    attention recording 
    posterior attention on both training and testing data
    scale-free posterior inference 
    
    select top-k variables, run prediction again
    identify significance different in prior and poster variable attention 
-   
-  
 
-Baseline:
+BASELINE:
 
    RETAIN and DUAL: instance-wise aggregate 
 
@@ -276,7 +314,7 @@ Baseline:
    AutoTS on R
    
    
-Regularization:
+REGULARIZATION:
    
    Maxout activiation
 
@@ -296,18 +334,9 @@ Regularization:
    max-norm on weight of LSTM
    
    causal regularization 
-   
-
-Multi-layer MV-LSTM
-
-Training and tesing importance value comparison, stablize variable importance across epoches 
-
-
-Model interpretation:
-   https://phys.org/news/2017-12-climate-conditions-affect-solar-cell.html
     
 
-Bayesian:
+BAYESIAN:
   
   bayesian dropout rnn + attention
 
@@ -317,10 +346,8 @@ Bayesian:
   https://gist.github.com/tokestermw/a9de2ef498a09747bbf673ddf6ea4843
 
 
-Memory mechanism:
-   some improvements on memory moduel in LSTM 
 
-Metrics:
+METRICES:
     RMSE, MAE, MAPE 
     standard errors, willios rank test, predicive likelihood 
     
@@ -329,9 +356,10 @@ soft and hart cutoff, impulse function approximate,
 
 top% accuracy in causal discovery 
 
-model saver, training and testing data, attentions 
+model saver, training and testing data 
 
 Computation time 
+
 
 Attention mechinism:  time decay: cikm deephawkes paper 
 
