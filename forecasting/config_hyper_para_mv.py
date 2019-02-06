@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-# -- mv --
+# -- mv RNN --
 
 # size of recurrent layers    
 hidden_dim_dic = {}
@@ -30,7 +30,6 @@ hidden_dim_dic.update( {"sml_uni": [128]} )
 hidden_dim_dic.update( {"pm25": [140]} )
 hidden_dim_dic.update( {"pm25_sub": [140]} )
 hidden_dim_dic.update( {"pm25_impt": [140]} )
-
 
 # learning rate increases as network size 
 lr_dic = {}
@@ -121,14 +120,13 @@ maxnorm_dic.update( {"pm25_impt": 5.0} )
 
 # attention type
 attention_dic = {}
-attention_dic.update( {"plain": "temp"} ) # ""
+attention_dic.update( {"mv_fusion": "both-fusion"} )
 attention_dic.update( {"mv_full": "both-att"} )
 attention_dic.update( {"mv_tensor": "both-att"} )
 
-
 # loss type
 loss_dic = {}
-loss_dic.update( {"plant": "pseudo_lk"} )
+loss_dic.update( {"plant": "lk"} )
 loss_dic.update( {"plant_pearson": "lk"} )
 loss_dic.update( {"plant_no_target": "lk"} )
 loss_dic.update( {"plant_sub_full": "lk"} )

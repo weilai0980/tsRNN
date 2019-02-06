@@ -17,7 +17,7 @@ from utils_libs import *
 from mv_rnn_cell import *
 from ts_mv_rnn import *
 from ts_mv_rnn_testing import *
-from config_hyper_para import *
+from config_hyper_para_mv import *
 
 # fix the random seed to reproduce the results
 np.random.seed(1)
@@ -38,21 +38,8 @@ os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "5" 
 
 # ------ arguments ------
-
-'''
-# parameters from command line
-dataset_str = str(sys.argv[1])
-method_str = str(sys.argv[2])
-
-impt_str = str(sys.argv[3])
-
-# parameters from config files
-import json
-with open('config_data.json') as f:
-    file_dict = json.load(f)
-'''
     
-# parameters from command line
+# from command line
 import argparse
 
 parser = argparse.ArgumentParser()
@@ -68,11 +55,10 @@ dataset_str = args.dataset
 method_str = args.model
 impt_str = args.importance
 
-# parameters from config.json
+# from config.json
 import json
 with open('config_data.json') as f:
     file_dict = json.load(f)
-    
 
 # ------ load data ------
 
@@ -94,7 +80,6 @@ para_win_size = np.shape(xtrain)[1]
 
 print(" --- Data shapes: ", np.shape(xtrain), np.shape(ytrain), np.shape(xval), np.shape(yval))
 
-
 # ------ model set-up ------
 
 # if residual layers are used, keep size of layers the same 
@@ -112,19 +97,20 @@ para_bool_regular_dropout_output = False
 para_layer_norm = ''
 
 # learning rate, convergence
-para_n_epoch = 5
+para_n_epoch = 100
 para_lr_mv = lr_dic[dataset_str]
 para_batch_size_mv = batch_size_dic[dataset_str]
+
 para_decay_step = 1000000
+para_decay = False
 
 # multi-variable architecture
 para_rnn_gate_type = "full" if method_str == 'mv_full' else 'tensor'
 para_lstm_dims_mv = hidden_dim_dic[dataset_str] 
 
 # attention
-para_attention_mv = attention_dic[method_str] # temp, var, var-pre, both-att, both-pool, vari-mv-output
+para_attention_mv = "both-att" # "both-fusion", "both-att"
 para_temp_attention_type = 'temp_loc' # loc, concate
-para_temp_decay_type = ''  # cutoff
 para_vari_attention_type = 'vari_loc_all'
 para_vari_attention_after_mv_desne = False
 
@@ -136,50 +122,18 @@ para_loss_type = loss_dic[dataset_str]
 para_ke_type = 'aggre_posterior' 
 # base_posterior, base_prior
 
-# testing
-para_epoch_sample = 1
+# epoch sample
+para_val_epoch_num = max(1, int(0.05 * para_n_epoch))
+para_test_epoch_num = 1
 
 
 # ------ utility functions ------
-'''
-def test_nn(epoch_samples, x_test, y_test, file_path, method_str):
+
+def train_nn(num_dense, l2_dense, dropout_keep_prob, log_file, ke_pickle, pred_pickle, epoch_set):
     
-    for idx in epoch_samples:
-        
-        tmp_meta = file_path + method_str + '-' + str(idx) + '.meta'
-        tmp_data = file_path + method_str + '-' + str(idx)
-        
-        # clear graph
-        tf.reset_default_graph()
-        
-        with tf.device('/device:GPU:0'):
-            
-            config = tf.ConfigProto()
-        
-            config.allow_soft_placement = True
-            config.gpu_options.allow_growth = True
-        
-            sess = tf.Session(config = config)
-            
-            if method_str == 'plain':
-                
-                # restore the model
-                reg = tsLSTM_plain(sess)
-                
-            elif method_str == 'mv_tensor' or method_str == 'mv_full':
-                
-                reg = tsLSTM_mv(sess)
-                      
-                
-            reg.pre_train_restore_model(tmp_meta, tmp_data)
-            # testing using the restored model
-            yh, rmse, mae, mape = reg.pre_train_inference(x_test, y_test, 1.0)
-                
-    return yh, rmse, mae, mape
-
-'''
-
-def train_nn(num_dense, l2_dense, dropout_keep_prob, log_file, ke_pickle, pred_pickle, epoch_sample):
+    # log: epoch errors
+    with open(log_file, "a") as text_file:
+        text_file.write("\n num_dense: %d, keep_prob: %f, l2: %f \n"%(num_dense, dropout_keep_prob, l2_dense))
     
     # ---- train and evaluate the model ----
     
@@ -201,63 +155,79 @@ def train_nn(num_dense, l2_dense, dropout_keep_prob, log_file, ke_pickle, pred_p
         sess = tf.Session(config = config)
                 
         # fix the random seed to stabilize the network 
-        # np.random.seed(1)
-        # tf.set_random_seed(1)
+        np.random.seed(1)
+        tf.set_random_seed(1)
         
         # apply max_norm contraint only when dropout is used
-        para_keep_prob = dropout_keep_prob
         para_max_norm = maxnorm_dic[dataset_str] if dropout_keep_prob < 1.0 else 0.0
-       
+        
+        print('\n\n --- ', method_str, 
+              ' parameter: ',
+              ' num of dense-', num_dense,
+              ' dropout keep prob-', dropout_keep_prob,
+              ' l2-', l2_dense,
+              ' maxnorm-', para_max_norm, 
+              '\n')
+        
+        reg = tsLSTM_mv(sess)
+        
         if method_str == 'mv_full':
             
-            print('\n\n --- ', method_str, ' parameter: ',\
-                  ' num of dense-', num_dense,\
-                  ' l2-', l2_dense,\
-                  ' dropout-', para_keep_prob,\
-                  ' maxnorm-', para_max_norm)
-            
-            reg = tsLSTM_mv(sess)
-            
-            reg.network_ini(para_lstm_dims_mv, para_win_size, para_input_dim, sess, \
-                            para_lr_mv, para_max_norm, para_bool_residual,\
-                            para_attention_mv, para_temp_decay_type, para_temp_attention_type,\
-                            l2_dense, para_l2_att_mv, para_vari_attention_type,\
-                            para_loss_type, para_dense_regul_type_mv,\
-                            para_layer_norm, num_dense, para_ke_type, "full",
+            reg.network_ini(para_lstm_dims_mv, 
+                            para_win_size, 
+                            para_input_dim,
+                            para_lr_mv, 
+                            para_max_norm, 
+                            para_bool_residual,
+                            para_attention_mv, 
+                            para_temp_attention_type,
+                            l2_dense, 
+                            para_l2_att_mv, 
+                            para_vari_attention_type,
+                            para_loss_type, 
+                            para_dense_regul_type_mv,
+                            para_layer_norm, 
+                            num_dense, 
+                            para_ke_type, 
+                            "full",
                             para_bool_regular_lstm,
                             para_bool_regular_attention,
                             para_bool_regular_dropout_output,
                             para_vari_attention_after_mv_desne,
-                            para_vari_impt_learning
+                            para_vari_impt_learning,
+                            para_decay
                             )
             
         elif method_str == 'mv_tensor':
             
-            print('\n\n --- ', method_str, ' parameter: ', \
-                  ' num of dense-', num_dense, \
-                  ' l2-', l2_dense, \
-                  ' dropout-', para_keep_prob, \
-                  ' maxnorm-', para_max_norm)
-            
-            reg = tsLSTM_mv(sess)
-            
-            reg.network_ini(para_lstm_dims_mv, para_win_size, para_input_dim, sess, \
-                            para_lr_mv, para_max_norm, para_bool_residual,\
-                            para_attention_mv, para_temp_decay_type, para_temp_attention_type,\
-                            l2_dense, para_l2_att_mv, para_vari_attention_type,\
-                            para_loss_type, para_dense_regul_type_mv,\
-                            para_layer_norm, num_dense, para_ke_type, "tensor",
+            reg.network_ini(para_lstm_dims_mv, 
+                            para_win_size, 
+                            para_input_dim,
+                            para_lr_mv, 
+                            para_max_norm, 
+                            para_bool_residual,
+                            para_attention_mv, 
+                            para_temp_attention_type,
+                            l2_dense, 
+                            para_l2_att_mv, 
+                            para_vari_attention_type,
+                            para_loss_type, 
+                            para_dense_regul_type_mv,
+                            para_layer_norm, 
+                            num_dense, 
+                            para_ke_type, 
+                            "tensor",
                             para_bool_regular_lstm,
                             para_bool_regular_attention,
                             para_bool_regular_dropout_output,
                             para_vari_attention_after_mv_desne,
-                            para_vari_impt_learning
+                            para_vari_impt_learning,
+                            para_decay
                             )
             
         else:
             print('\n\n [ ERROR] method_str \n\n')
             
-        
         # initialize the network
         reg.train_ini()
         reg.inference_ini()
@@ -297,60 +267,65 @@ def train_nn(num_dense, l2_dense, dropout_keep_prob, log_file, ke_pickle, pred_p
                 # batch training data
                 batch_idx = total_idx[ i*para_batch_size_mv: min((i+1)*para_batch_size_mv, total_cnt) ] 
                 batch_x = xtrain[ batch_idx ]
-                batch_y = ytrain[ batch_idx ]            
+                batch_y = ytrain[ batch_idx ]
                 
                 if method_str == 'mv_full' or method_str == 'mv_tensor':
                     
                     # learning rate decay
-                    if (i + iter_per_epoch*epoch) != 0 and (i + iter_per_epoch*epoch)%para_decay_step == 0:
-                        tmp_loss, tmp_err = reg.train_batch(batch_x, \
-                                                        batch_y, \
-                                                        para_keep_prob, \
-                                                        True, \
-                                                        para_lr_mv*(0.96)**((i + iter_per_epoch*epoch)/para_decay_step))
+                    if para_decay == True and iter_per_epoch*epoch!=0 and (i + iter_per_epoch*epoch)%para_decay_step == 0:
+                        
+                        tmp_loss, tmp_err = reg.train_batch(batch_x,
+                                                            batch_y,
+                                                            dropout_keep_prob,
+                                                            True,
+                                                            para_lr_mv*(0.96)**((i + iter_per_epoch*epoch)/para_decay_step))
                     else:
-                        tmp_loss, tmp_err = reg.train_batch(batch_x, \
-                                                        batch_y, \
-                                                        para_keep_prob, \
-                                                        False, \
-                                                        0.0)
+                        tmp_loss, tmp_err = reg.train_batch(batch_x,
+                                                            batch_y,
+                                                            dropout_keep_prob,
+                                                            False,
+                                                            0.0)
                 else:
-                    tmp_loss, tmp_err = reg.train_batch(batch_x, batch_y, para_keep_prob)
+                    tmp_loss, tmp_err = reg.train_batch(batch_x, 
+                                                        batch_y, 
+                                                        dropout_keep_prob)
                 
                 loss_epoch += tmp_loss
                 err_sum_epoch += tmp_err
             
-            
             # -- epoch-wise evaluation
             
+            # [self.y_hat, self.rmse, self.mae, self.mape]
+            # [B V T-1], [B V]
+            # dropout probability set to 1.0
+            yh, rmse_epoch, mae_epoch, mape_epoch, vari_impt = reg.inference(xval, 
+                                                                             yval, 
+                                                                             1.0)
+            
             if para_attention_mv == 'both-att':
-                
-                # ?
-                
-                # [self.y_hat, self.rmse, self.mae, self.mape]
-                # [B V T-1], [B V]
-                # dropout probability set to 1.0
-                yh, rmse_epoch, mae_epoch, mape_epoch, vari_impt = reg.inference(xval, yval, 1.0)
                 
                 # knowledge extraction
                 # dropout probability set to 1.0
                 test_w, att_temp, att_prior, att_poster, importance_vari_temp, importance_vari_prior,\
-                importance_vari_posterior = reg.knowledge_extraction(xtrain, ytrain, 1.0)
+                importance_vari_posterior = reg.knowledge_extraction(xtrain, 
+                                                                     ytrain, 
+                                                                     1.0)
                     
                 # epoch_att.append([att_temp, att_prior, att_poster])
                 epoch_ke.append([importance_vari_temp, importance_vari_prior, importance_vari_posterior, vari_impt])
             
             ed_time_epoch = time.time()
             
-            train_rmse_epoch = sqrt(1.0*err_sum_epoch/total_cnt)
             
+            # -- 
             epoch_prediction.append(yh)
             
-            epoch_error.append([epoch, \
-                                loss_epoch*1.0/iter_per_epoch, \
-                                train_rmse_epoch, \
-                                rmse_epoch, \
-                                mae_epoch, \
+            # epoch, loss, train rmse, vali. rmse, vali. mae, vali. mape
+            epoch_error.append([epoch,
+                                loss_epoch*1.0/iter_per_epoch,
+                                sqrt(1.0*err_sum_epoch/total_cnt),
+                                rmse_epoch,
+                                mae_epoch,
                                 mape_epoch])
             # epoch-wise 
             print("\n --- At epoch %d : \n    %s, %d "%(epoch, str(epoch_error[-1][1:]), ed_time_epoch - st_time_epoch))
@@ -364,8 +339,8 @@ def train_nn(num_dense, l2_dense, dropout_keep_prob, log_file, ke_pickle, pred_p
                 text_file.write("%s\n"%(str(epoch_error[-1])[1:-1]))
                 
             
-            # save the model w.r.t. the epoch in epoch_sample
-            if epoch in epoch_sample:
+            # save the model w.r.t. the epoch in epoch_set
+            if epoch in epoch_set:
                 
                 saver.save(sess, '../../ts_results/model/' + method_str + '-' + str(epoch))
                 print("    [MODEL SAVED] \n")
@@ -377,14 +352,16 @@ def train_nn(num_dense, l2_dense, dropout_keep_prob, log_file, ke_pickle, pred_p
         
         # ---- dump epoch-wise results
         
+        '''
         if (method_str == 'mv_full' or method_str == 'mv_tensor') and para_attention_mv == 'both-att':            
             
             pickle.dump(epoch_ke, open(ke_pickle + ".p", "wb"))
             
             best_epoch = min(epoch_error, key = lambda x:x[3])[0]
-            pickle.dump(list(zip(np.squeeze(yval), np.squeeze(epoch_prediction[best_epoch]))), \
+            pickle.dump(list(zip(np.squeeze(yval), np.squeeze(epoch_prediction[best_epoch]))),
                         open(pred_pickle + ".p", "wb"))
-            
+        '''
+        
         return sorted(epoch_error, key = lambda x: x[3]), 1.0*(ed_time - st_time)/para_n_epoch
     
 
@@ -395,7 +372,7 @@ def log_train(text_env):
     text_env.write("method: %s, %s  \n"%(method_str, attention_dic[method_str]))
     text_env.write("MV layer size: %s \n"%(str(hidden_dim_dic[dataset_str])))
     text_env.write("lr: %s \n"%(str(lr_dic[dataset_str])))
-    text_env.write("learnign rate decay iterations : %d \n"%(para_decay_step))
+    text_env.write("learnign rate decay : %s, %d \n"%(para_decay, para_decay_step))
     text_env.write("attention: %s, %s \n"%(para_temp_attention_type, para_vari_attention_type))
     text_env.write("loss type: %s \n"%(para_loss_type))
     text_env.write("batch size: %s \n"%(str(para_batch_size_mv)))
@@ -409,13 +386,14 @@ def log_train(text_env):
     text_env.write("variable attention after mv_desne : %s \n"%(para_vari_attention_after_mv_desne))
     text_env.write("variable importance learning : %s \n"%(para_vari_impt_learning))
     
-    text_env.write("epoch ensembel for the testing : %s \n\n"%(para_epoch_sample))
+    text_env.write("epoch num in validation : %s \n"%(para_val_epoch_num))
+    text_env.write("epoch ensemble num in testing : %s \n\n"%(para_test_epoch_num))
     
     return
 
-def log_val(text_env, best_hpara, epoch_sample, best_val_err):
+def log_val(text_env, best_hpara, epoch_set, best_val_err):
     
-    text_env.write("\n best hyper parameters: %s %s \n"%(str(best_hpara), str(epoch_sample)))
+    text_env.write("\n best hyper parameters: %s %s \n"%(str(best_hpara), str(epoch_set)))
     text_env.write(" best validation errors: %s \n"%(str(best_val_err)))
     
     return
@@ -427,7 +405,7 @@ def log_test(text_env, errors):
     return
 
 
-# ------ main train and validation process ------
+# ------ main process ------
 
 '''
 Log and dump files:
@@ -445,31 +423,29 @@ pred_pickle: only for MV-RNN, set-up wise
 if __name__ == '__main__':
     
     # log: overall erros, hyperparameter
-    log_err_file = "../../ts_results/ts_rnn.txt"
+    log_err_file = "../../ts_results/ts_mv.txt"
     with open(log_err_file, "a") as text_file:
         log_train(text_file)
         
     # log: epoch files
     log_epoch_file = "../../ts_results/log_" + method_str + "_" + dataset_str + ".txt"
-    
     with open(log_epoch_file, "a") as text_file:
         log_train(text_file)
-        
+    
+    # fix the random seed to reproduce the results
+    np.random.seed(1)
+    tf.set_random_seed(1)
+
+    # ------ training and validation
+    
     # grid search process
     hpara = []
     hpara_err = []
     
-    # ------ training and validation
-    
     #for para_lr_mv in [0.001, 0.002, 0.005]
     for tmp_num_dense in [0, 1]:
-        for tmp_keep_prob in [1.0]:
-            for tmp_l2 in [0.00001]:
-                # , 0.0001, 0.001, 0.01
-                
-                # log: epoch errors
-                with open(log_epoch_file, "a") as text_file:
-                    text_file.write("\n num_dense: %d, keep_prob: %f, l2: %f \n"%(tmp_num_dense, tmp_keep_prob, tmp_l2))
+        for tmp_keep_prob in [1.0, 0.8]:
+            for tmp_l2 in [0.00001, 0.0001, 0.001, 0.01]:
                 
                 # pickle: ke - knowledge extraction
                 ke_pickle = "../../ts_results/ke_" + \
@@ -498,30 +474,34 @@ if __name__ == '__main__':
                                                        [])
                 
                 hpara.append([tmp_num_dense, tmp_keep_prob, tmp_l2])
-                hpara_err.append(error_epoch_log) 
+                hpara_err.append(error_epoch_log)
                 
                 print('\n --- current running: ', tmp_num_dense, tmp_keep_prob, tmp_l2, error_epoch_log[0], '\n')
                 
                 # log: overall errors, performance for one hyperparameter set-up
-                with open("../../ts_results/ts_rnn.txt", "a") as text_file:
+                with open(log_err_file, "a") as text_file:
                     text_file.write( "%f %f %f %s %s \n"%(tmp_num_dense, 
                                                           tmp_keep_prob, 
                                                           tmp_l2, 
                                                           str(error_epoch_log[0]), 
                                                           str(epoch_time)))
                     
-    with open("../../ts_results/ts_rnn.txt", "a") as text_file:
-        text_file.write( "\n")
-        
-        
+    with open(log_err_file, "a") as text_file:
+        text_file.write("\n")
+
     # ------ re-training
     
-    best_hpara, epoch_sample, best_val_err = hyper_para_selection(hpara, hpara_err, para_epoch_sample)
+    best_hpara, epoch_sample, best_val_err = hyper_para_selection(hpara, 
+                                                                  hpara_err, 
+                                                                  para_val_epoch_num, 
+                                                                  para_test_epoch_num)
     
     best_num_dense = best_hpara[0]
     best_keep_prob = best_hpara[1]
     best_l2 = best_hpara[2]
     
+    
+    # result record
     print('\n\n----- re-traning ------ \n')
     
     print('best hyper parameters: ', best_hpara, epoch_sample, '\n')
@@ -529,15 +509,41 @@ if __name__ == '__main__':
     
     with open(log_err_file, "a") as text_file:
         log_val(text_file, best_hpara, epoch_sample, best_val_err)
+        
+    import json
+    with open('../../ts_results/hyper_para/' + dataset_str + '_' + method_str + '_' + para_attention_mv + '.json', 'w') as fp:
+        
+        tmp_hyper_para = {'num_dense':best_hpara[0],
+                          'keep_prob':best_hpara[1],
+                          'l2':best_hpara[2]
+                         }
+        
+        json.dump(tmp_hyper_para, fp)
     
-    _, _ = train_nn(best_num_dense, best_l2, best_keep_prob, log_epoch_file, ke_pickle, pred_pickle, epoch_sample)
     
+    # start the re-training
+    error_epoch_log, epoch_time = train_nn(best_num_dense, 
+                                           best_l2, 
+                                           best_keep_prob, 
+                                           log_epoch_file, 
+                                           ke_pickle, 
+                                           pred_pickle, 
+                                           epoch_sample)
+    
+    # log: overall errors, performance for one hyperparameter set-up
+    with open(log_err_file, "a") as text_file:
+        text_file.write( "%f %f %f %s %s \n"%(best_num_dense, 
+                                              best_keep_prob, 
+                                              best_l2, 
+                                              str(error_epoch_log[0]), 
+                                              str(epoch_time)))
+                
     # ------ testing
     
     print('\n\n----- testing ------ \n')
     
     yh, rmse, mae, mape = test_nn(epoch_sample, xval, yval, '../../ts_results/model/', method_str)
-    print('testing errors: ', rmse, mae, mape)
+    print('\n\n testing errors: ', rmse, mae, mape)
     
     with open(log_err_file, "a") as text_file:
         log_test(text_file, [rmse, mae, mape])

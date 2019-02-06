@@ -579,7 +579,7 @@ def mv_attention_variate_after_temp( h_temp, h_dim, scope, num_vari, att_type ):
 '''
 
 # unified temporal attention 
-def mv_attention_temp( h_list, v_dim, scope, n_step, step_idx, decay_activation, att_type, num_vari ):
+def mv_attention_temp(h_list, v_dim, scope, n_step, att_type, num_vari):
     
     with tf.variable_scope(scope):
         

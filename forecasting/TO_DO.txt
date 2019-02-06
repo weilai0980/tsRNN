@@ -95,24 +95,7 @@ effect of attention regularization
    
    Stack mv lstm
 
----- Tuning tricks ----
-
--- convergence: learning rate, batch size, network size 
--- underfitting: network size
--- overfitting: regularization strength, batch size, network size, target loss v.s. regularization
-
-
-Observe data to determine window size
-
-Max-norm constraints and dropout together  
-
-divergence point of training and validation errors as the training stopping point
-
-Training slow down: learning rate, max norm, batch size 
-
-observe tradeoff between representability and generalization ability when hyper-parameter changes 
-
-large network -> high learning rate 
+Reading named command arguments via argparse
 
 LSTM with various regularization
 
@@ -141,35 +124,30 @@ Model interpretation:
 
 Memory mechanism:
    some improvements on memory moduel in LSTM 
-   
-   
 
+  test mode
+
+---- Tuning tricks ----
+
+-- convergence: learning rate, batch size, network size 
+-- underfitting: network size
+-- overfitting: regularization strength, batch size, network size, target loss v.s. regularization
+
+
+Observe data to determine window size
+
+Max-norm constraints and dropout together  
+
+divergence point of training and validation errors as the training stopping point
+
+Training slow down: learning rate, max norm, batch size 
+
+observe tradeoff between representability and generalization ability when hyper-parameter changes 
+
+large network -> high learning rate 
+
+   
 ---- TO DO ----
-
---
-
-Reading named command arguments
-
-import argparse
-
-parser = argparse.ArgumentParser()
-parser.add_argument('--foo', '-f', help="a random options", type= str)
-parser.add_argument('--bar', '-b', help="a more random option", type= int, default= 0)
-
-print(parser.format_help())
-# usage: test_args_4.py [-h] [--foo FOO] [--bar BAR]
-# 
-# optional arguments:
-#   -h, --help         show this help message and exit
-#   --foo FOO, -f FOO  a random options
-#   --bar BAR, -b BAR  a more random option
-
-args = parser.parse_args("--foo pouet".split())
-print(args)  # Namespace(bar=0, foo='pouet')
-print(args.foo) # pouet
-print(args.bar) # 0
-
---
 
 MULTI-TASK 
 
@@ -180,23 +158,25 @@ INTERPRETABILITY:
   
   SHARP
   
-
 NORMALIZATION:
   
   batch normalization
   weight normalization
 
-
 ATTENTION:
   
   multi-head attention
+  global local attention regularization 
   
-
 EXPERIMENTS:
 
+   EM process
+
+   Order: loss function, normalization on Y, regularization, attention 
+   
    observe hidden state variation in RNN
    
-   only with dropout 
+   only with dropout, no dropout
    
    layer normalization 
    
@@ -227,22 +207,18 @@ EXPERIMENTS:
   Laplace posterior smoothing, KL-divergency and Laplace smoothing 
   
   log-sum-exp trick
-  test mode
-  no dropout 
-  
+
   experiments: noisy input variables  
                compare with linear correlation, pearson 
                              
   optimization techniques:
                batch/layer normalization
 
-
 REFERENCE: 
 
   https://beenkim.github.io/
   feature/variable importance
   
-
 STATISTIC:
 
   https://ermongroup.github.io/cs228-notes/
@@ -257,7 +233,6 @@ STATISTIC:
   http://nbviewer.jupyter.org/github/CamDavidsonPilon/Probabilistic-Programming-and-Bayesian-Methods-for-     
   Hackers/blob/master/Prologue/Prologue.ipynb
 
-
 LOSS FUNCTION:
 
   corss-check varialbe ranking or network 
@@ -271,8 +246,8 @@ LOSS FUNCTION:
   
   point-wise loss
   point-wise loss, loss reweight
+  
  
-
 PRE-PROCESSING:
 
    outlier removal 
@@ -344,7 +319,6 @@ BAYESIAN:
   https://gist.github.com/VikingPenguinYT/665769ba03115b1a0888893eaf1d4f13
   https://theintelligenceofinformation.wordpress.com/2017/06/02/pydata-london-2017-bayesian-deep-learning-talk-by-andrew-rowan/
   https://gist.github.com/tokestermw/a9de2ef498a09747bbf673ddf6ea4843
-
 
 
 METRICES:

@@ -13,18 +13,18 @@ from ts_mv_rnn import *
 
 # ---- model restore and testing ----
 
-def hyper_para_selection(hpara, error_log, top_k):
+def hyper_para_selection(hpara, error_log, val_epoch_num, test_epoch_num):
     
     val_err = []
     
     for hp_error in error_log:
         
         # based on RMSE
-        val_err.append( mean([k[3] for k in hp_error[:top_k]]) )
+        val_err.append( mean([k[3] for k in hp_error[:val_epoch_num]]) )
     
     idx = val_err.index(min(val_err))
     
-    return hpara[idx], [i[0] for i in error_log[idx]][:top_k], min(val_err)
+    return hpara[idx], [i[0] for i in error_log[idx]][:test_epoch_num], min(val_err)
 
 def test_nn(epoch_samples, x_test, y_test, file_path, method_str):
     

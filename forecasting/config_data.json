@@ -1,4 +1,5 @@
 {
+    "gpu_id": "5",
     "air": ["../../dataset/dataset_ts/air_xtrain_mv.dat",
                  "../../dataset/dataset_ts/air_xtest_mv.dat",
                  "../../dataset/dataset_ts/air_ytrain_mv.dat",
