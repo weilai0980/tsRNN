@@ -170,6 +170,8 @@ ATTENTION:
   
 EXPERIMENTS:
 
+   Retraining
+   
    EM process
 
    Order: loss function, normalization on Y, regularization, attention 

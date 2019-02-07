@@ -109,7 +109,7 @@ para_rnn_gate_type = "full" if method_str == 'mv_full' else 'tensor'
 para_lstm_dims_mv = hidden_dim_dic[dataset_str] 
 
 # attention
-para_attention_mv = "both-att" # "both-fusion", "both-att"
+para_attention_mv = "both-fusion" # "both-fusion", "both-att"
 para_temp_attention_type = 'temp_loc' # loc, concate
 para_vari_attention_type = 'vari_loc_all'
 para_vari_attention_after_mv_desne = False
@@ -331,7 +331,7 @@ def train_nn(num_dense, l2_dense, dropout_keep_prob, log_file, ke_pickle, pred_p
             print("\n --- At epoch %d : \n    %s, %d "%(epoch, str(epoch_error[-1][1:]), ed_time_epoch - st_time_epoch))
             
             # ?
-            print("\n     %s  "%(str(vari_impt)))
+            #print("\n     %s  "%(str(vari_impt)))
             #print("\n     %s  %s %s"%(str(logits_diff), str(impt_norm), str(clipped_impt_norm)))
             
             
@@ -369,7 +369,7 @@ def log_train(text_env):
     
     text_env.write("\n---- dataset: %s \n"%(dataset_str))
     text_env.write("dataset shape: %s \n"%(str(np.shape(xtrain))))
-    text_env.write("method: %s, %s  \n"%(method_str, attention_dic[method_str]))
+    text_env.write("method: %s, %s  \n"%(method_str, para_attention_mv))
     text_env.write("MV layer size: %s \n"%(str(hidden_dim_dic[dataset_str])))
     text_env.write("lr: %s \n"%(str(lr_dic[dataset_str])))
     text_env.write("learnign rate decay : %s, %d \n"%(para_decay, para_decay_step))

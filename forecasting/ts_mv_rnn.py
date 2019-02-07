@@ -38,9 +38,25 @@ class tsLSTM_plain():
         self.sess = session
         
     
-    def network_ini(self, n_lstm_dim_layers, n_steps, n_data_dim,\
-                 lr, l2_dense, max_norm, bool_residual, att_type, l2_att, num_dense, \
-                 bool_regular_attention, bool_regular_lstm, bool_regular_dropout_output, lr_decay):
+    def network_ini(self, 
+                    n_lstm_dim_layers, 
+                    n_steps, 
+                    n_data_dim,
+                    lr, 
+                    l2_dense, 
+                    max_norm, 
+                    bool_residual, 
+                    att_type, 
+                    l2_att, 
+                    num_dense,
+                    bool_regular_attention, 
+                    bool_regular_lstm, 
+                    bool_regular_dropout_output, 
+                    lr_decay):
+        
+        # ---- fix the random seed to reproduce the results
+        np.random.seed(1)
+        tf.set_random_seed(1)
         
         # ---- ini
         
@@ -84,7 +100,7 @@ class tsLSTM_plain():
             print(' --- Plain RNN using NO attention:  ')
             
             # obtain the last hidden state
-            tmp_hiddens = tf.transpose( h, [1,0,2] )
+            tmp_hiddens = tf.transpose(h, [1,0,2])
             h = tmp_hiddens[-1]
             
             # dropout
@@ -134,10 +150,13 @@ class tsLSTM_plain():
         self.init = tf.global_variables_initializer()
         self.sess.run( [self.init] )
         
-    def train_batch(self, x_batch, y_batch, keep_prob, bool_lr_update, lr):
         
-        
-    def train_batch(self, x_batch, y_batch, keep_prob, bool_lr_update, lr):
+    def train_batch(self, 
+                    x_batch, 
+                    y_batch, 
+                    keep_prob, 
+                    bool_lr_update, 
+                    lr):
         
         # learning rate decay update
         if bool_lr_update == True:
@@ -168,7 +187,10 @@ class tsLSTM_plain():
         self.mape = tf.reduce_mean( tf.abs((y_mask - y_hat_mask)*1.0/(y_mask+1e-10)) )
 
 #   inference givn testing data
-    def inference(self, x_test, y_test, keep_prob):
+    def inference(self, 
+                  x_test, 
+                  y_test, 
+                  keep_prob):
         
         # predicting by pre-trained models
         tf.add_to_collection("pred", self.py)
@@ -180,7 +202,9 @@ class tsLSTM_plain():
                              feed_dict = {self.x:x_test, self.y:y_test, self.keep_prob:keep_prob})
     
     # restore the model from the files
-    def pre_train_restore_model(self, path_meta, path_data):
+    def pre_train_restore_model(self, 
+                                path_meta, 
+                                path_data):
         
         saver = tf.train.import_meta_graph(path_meta, clear_devices=True)
         saver.restore(self.sess, path_data)
@@ -188,7 +212,10 @@ class tsLSTM_plain():
         return 0
         
     # inference using pre-trained model 
-    def pre_train_inference(self, x_test, y_test, keep_prob):
+    def pre_train_inference(self, 
+                            x_test, 
+                            y_test, 
+                            keep_prob):
         
         return self.sess.run([tf.get_collection('pred')[0],
                               tf.get_collection('rmse')[0],
@@ -543,6 +570,13 @@ class tsLSTM_mv():
         Returns:
         
         '''
+        
+        # ---- fix the random seed to reproduce the results
+        np.random.seed(1)
+        tf.set_random_seed(1)
+        
+        
+        # ---- ini
         
         self.n_lstm_dim_layers = n_lstm_dim_layers
         
@@ -1109,7 +1143,8 @@ class tsLSTM_mv():
                 
                 # variable attention 
                 # [B 2D]
-                h_vari, regu_att_vari, self.att_vari = mv_attention_variate(h_att_vari_input,
+                
+                h_vari, regu_att_vari, self.att_vari, _ = mv_attention_variate(h_att_vari_input,
                                                                             2*int(n_lstm_dim_layers[0]/self.N_DATA_DIM),
                                                                             'att_vari',
                                                                             self.N_DATA_DIM,
@@ -1149,6 +1184,8 @@ class tsLSTM_mv():
                 
                 # [B V]
                 self.att_prior = tf.squeeze(self.att_vari)
+                
+                self.vari_impt = tf.nn.softmax(tf.squeeze(self.vari_impt_logits))
            
         
         # ---- regularization in LSTM
@@ -1197,7 +1234,12 @@ class tsLSTM_mv():
         self.init = tf.global_variables_initializer()
         self.sess.run([self.init])
     
-    def train_batch(self, x_batch, y_batch, keep_prob, bool_lr_update, lr):
+    def train_batch(self, 
+                    x_batch, 
+                    y_batch, 
+                    keep_prob, 
+                    bool_lr_update, 
+                    lr):
         
         # learning rate decay update
         if bool_lr_update == True:
@@ -1229,7 +1271,10 @@ class tsLSTM_mv():
         
         
 #   inference givn data    
-    def inference(self, x, y, keep_prob):
+    def inference(self, 
+                  x, 
+                  y, 
+                  keep_prob):
         
         # for restoring models
         tf.add_to_collection("pred", self.py)
@@ -1241,11 +1286,17 @@ class tsLSTM_mv():
         return self.sess.run([self.py, self.rmse, self.mae, self.mape, self.vari_impt], 
                              feed_dict = {self.x:x, self.y:y, self.keep_prob:keep_prob})
     
-    def predict(self, x, y, keep_prob):
+    def predict(self, 
+                x, 
+                y, 
+                keep_prob):
         
         return self.sess.run( self.py, feed_dict = {self.x:x, self.y:y, self.keep_prob:keep_prob})
     
-    def knowledge_extraction(self, x, y, keep_prob):
+    def knowledge_extraction(self, 
+                             x, 
+                             y, 
+                             keep_prob):
         
         if self.att_type == 'both-att':
             
@@ -1280,7 +1331,9 @@ class tsLSTM_mv():
         
         
     # restore the model from the files
-    def pre_train_restore_model(self, path_meta, path_data):
+    def pre_train_restore_model(self, 
+                                path_meta, 
+                                path_data):
         
         saver = tf.train.import_meta_graph(path_meta, clear_devices=True)
         saver.restore(self.sess, path_data)
@@ -1288,7 +1341,10 @@ class tsLSTM_mv():
         return 0
         
     # inference using pre-trained model 
-    def pre_train_inference(self, x_test, y_test, keep_prob):
+    def pre_train_inference(self, 
+                            x_test, 
+                            y_test, 
+                            keep_prob):
         
         return self.sess.run([tf.get_collection('pred')[0],
                               tf.get_collection('rmse')[0],

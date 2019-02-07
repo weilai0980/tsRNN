@@ -112,6 +112,10 @@ para_test_epoch_num = 1
 
 # ------ utility functions ------
 
+
+
+
+
 def train_nn(num_dense, l2_dense, dropout_keep_prob, log_file, test_pickle, epoch_set):
     
     # log: epoch errors
