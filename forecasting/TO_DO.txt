@@ -126,6 +126,39 @@ Memory mechanism:
    some improvements on memory moduel in LSTM 
 
   test mode
+  
+  
+  mse
+  llk
+  pseudo_llk
+  uni_vol_llk
+
+Retraining
+ 
+attention:  
+     
+     attention regularization
+     
+     attenion on exgoneous variable taking into account the hiddens of the target variable 
+     
+     sparse attention on temporal
+
+
+soft and hart cutoff, impulse function approximate, 
+
+top% accuracy in causal discovery 
+
+model saver, training and testing data 
+
+Computation time 
+
+
+
+
+
+
+
+
 
 ---- Tuning tricks ----
 
@@ -158,20 +191,41 @@ INTERPRETABILITY:
   
   SHARP
   
+LOSS FUNCTION:
+
+  corss-check varialbe ranking or network 
+
+  distributional loss: regression 
+  risk minimization 
+
+  llk + squared loss
+  quantile regression
+  earth mover distance
+  
+  point-wise loss
+  point-wise loss, loss reweight
+  
+  
+  
 NORMALIZATION:
   
   batch normalization
   weight normalization
+  layer normalization
 
 ATTENTION:
   
   multi-head attention
-  global local attention regularization 
+  global local attention regularization
+  attenion on exgoneous variable taking into account the hiddens of the target variable 
   
+TRAINING:
+   EM train
+
 EXPERIMENTS:
 
-   Retraining
-   
+   autoregressive component 
+
    EM process
 
    Order: loss function, normalization on Y, regularization, attention 
@@ -179,8 +233,6 @@ EXPERIMENTS:
    observe hidden state variation in RNN
    
    only with dropout, no dropout
-   
-   layer normalization 
    
    mv_lstm: hidden combination 
    
@@ -198,23 +250,10 @@ EXPERIMENTS:
 
    y_normalization function
   
-   attention:  
-     
-     attention regularization
-     
-     attenion on exgoneous variable taking into account the hiddens of the target variable 
-     
-     sparse attention on temporal
-     
-  Laplace posterior smoothing, KL-divergency and Laplace smoothing 
-  
-  log-sum-exp trick
+
 
   experiments: noisy input variables  
                compare with linear correlation, pearson 
-                             
-  optimization techniques:
-               batch/layer normalization
 
 REFERENCE: 
 
@@ -235,27 +274,17 @@ STATISTIC:
   http://nbviewer.jupyter.org/github/CamDavidsonPilon/Probabilistic-Programming-and-Bayesian-Methods-for-     
   Hackers/blob/master/Prologue/Prologue.ipynb
 
-LOSS FUNCTION:
-
-  corss-check varialbe ranking or network 
-
-  distributional loss: regression 
-  risk minimization 
-
-  llk + squared loss
-  quantile regression
-  earth mover distance
-  
-  point-wise loss
-  point-wise loss, loss reweight
-  
  
-PRE-PROCESSING:
+DATA PRE-PROCESSING:
 
    outlier removal 
    autocorrelation order
 
-POST-PROCESSING:
+IMPORTANCE LEARNING:
+
+   Laplace posterior smoothing, KL-divergency and Laplace smoothing 
+
+   log-sum-exp trick 
 
    attention recording 
    posterior attention on both training and testing data
@@ -328,13 +357,7 @@ METRICES:
     standard errors, willios rank test, predicive likelihood 
     
 
-soft and hart cutoff, impulse function approximate, 
 
-top% accuracy in causal discovery 
-
-model saver, training and testing data 
-
-Computation time 
 
 
 Attention mechinism:  time decay: cikm deephawkes paper 

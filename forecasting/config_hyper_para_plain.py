@@ -15,8 +15,8 @@ hidden_dim_dic.update( {"pm25": [140]} )
 # learning rate increases as network size 
 lr_dic = {}
 
-# lk: 0.01, mse: 0.005
-lr_dic.update( {"plant": 0.01} )
+# lk: 0.1, mse: 0.01
+lr_dic.update( {"plant": 0.1} )
 # lk: ?, mse: 0.01
 lr_dic.update( {"sml": 0.01} )
 lr_dic.update( {"nasdaq": 0.05} )
@@ -40,7 +40,7 @@ maxnorm_dic.update( {"pm25": 5.0} )
 
 # attention type
 attention_dic = {}
-attention_dic.update( {"plain": ""} ) # "temp"
+attention_dic.update( {"plain": "temp"} ) # "temp"
 
 # loss type
 loss_dic = {}

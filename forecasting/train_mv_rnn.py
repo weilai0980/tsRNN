@@ -19,10 +19,6 @@ from ts_mv_rnn import *
 from ts_mv_rnn_testing import *
 from config_hyper_para_mv import *
 
-# fix the random seed to reproduce the results
-np.random.seed(1)
-tf.set_random_seed(1)
-
 ''' 
 Arguments:
 
@@ -117,7 +113,7 @@ para_vari_attention_after_mv_desne = False
 para_vari_impt_learning = impt_str
 # sigmoid_pos, sigmoid_neg, gaussian, gaussian_variance, ''
 
-para_loss_type = loss_dic[dataset_str]
+para_loss_type = 'mse'
 # lk, mse, lk: likelihood, pseudo_lk 
 para_ke_type = 'aggre_posterior' 
 # base_posterior, base_prior
@@ -490,6 +486,10 @@ if __name__ == '__main__':
         text_file.write("\n")
 
     # ------ re-training
+    
+    # fix the random seed to reproduce the results
+    np.random.seed(1)
+    tf.set_random_seed(1)
     
     best_hpara, epoch_sample, best_val_err = hyper_para_selection(hpara, 
                                                                   hpara_err, 

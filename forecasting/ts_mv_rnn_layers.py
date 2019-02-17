@@ -65,8 +65,8 @@ def test_nn(epoch_samples, x_test, y_test, file_path, method_str):
 
 # ---- mv dense layers ---- 
 
-def multi_mv_dense( num_layers, keep_prob, h_vari, dim_vari, scope, num_vari, \
-                   bool_no_activation, max_norm_regul, regul_type ):
+def multi_mv_dense(num_layers, keep_prob, h_vari, dim_vari, scope, num_vari, \
+                   bool_no_activation, max_norm_regul, regul_type):
     
     in_dim_vari = dim_vari
     out_dim_vari = int(dim_vari/2)
@@ -98,7 +98,7 @@ def multi_mv_dense( num_layers, keep_prob, h_vari, dim_vari, scope, num_vari, \
             
 
 # with max-norm regularization 
-def mv_dense( h_vari, dim_vari, scope, num_vari, dim_to, bool_no_activation, max_norm_regul, regul_type ):
+def mv_dense(h_vari, dim_vari, scope, num_vari, dim_to, bool_no_activation, max_norm_regul, regul_type):
     
     # argu [V B D]
     
@@ -128,7 +128,7 @@ def mv_dense( h_vari, dim_vari, scope, num_vari, dim_to, bool_no_activation, max
         if bool_no_activation == True:
             h = tmp_h
         else:
-            h = tf.nn.relu( tmp_h ) 
+            h = tf.nn.relu(tmp_h) 
         
         # regularization type
         if regul_type == 'l2':
@@ -407,3 +407,43 @@ def multi_dense(x, x_dim, num_layers, scope, dropout_keep_prob, max_norm_regul):
                 out_dim = int(out_dim/2)
                 
         return h, regularization, in_dim    
+    
+def dense(x, x_dim, out_dim, scope, dropout_keep_prob, max_norm_regul, bool_no_activation):
+    
+    h = x
+    regularization = 0.0
+    
+    with tf.variable_scope(scope):
+        
+        # dropout
+        h = tf.nn.dropout(h, dropout_keep_prob)
+        w = tf.get_variable('w', 
+                            [x_dim, out_dim], 
+                            dtype = tf.float32,\
+                            initializer = tf.contrib.layers.variance_scaling_initializer())
+                                    #initializer=tf.contrib.layers.xavier_initializer())
+        b = tf.Variable(tf.zeros(out_dim))
+                
+        # max norm constraints 
+        if max_norm_regul > 0:
+            clipped = tf.clip_by_norm(w, clip_norm = max_norm_regul, axes = 1)
+            clip_w = tf.assign(w, clipped)
+                    
+            tmp_h = tf.matmul(h, clip_w) + b
+                    
+        else:
+            tmp_h = tf.matmul(h, w) + b
+        
+
+        if bool_no_activation == True:
+            h = tmp_h
+        else:
+            h = tf.nn.relu(tmp_h) 
+        
+        #?
+        regularization = tf.nn.l2_loss(w)
+                
+    return h, regularization
+
+
+

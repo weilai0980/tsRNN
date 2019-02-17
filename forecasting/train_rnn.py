@@ -80,7 +80,7 @@ print(" --- Data shapes: ", np.shape(xtrain), np.shape(ytrain), np.shape(xval), 
 # ------ model set-up ------
 
 # convergence
-para_n_epoch = 100
+para_n_epoch = 170
 
 para_lr_plain = lr_dic[dataset_str]
 para_batch_size_plain = 64
@@ -98,10 +98,10 @@ para_bool_regular_dropout_output = False
 para_bool_residual = False
 
 # loss
-para_loss_type = 'mse' # mse, lk: likelihood, pseudo_lk 
+para_loss_type = 'lk' # mse, lk, lk_inv, pseudo_lk 
 
 # attention
-para_attention_plain = attention_dic[method_str]
+para_attention_plain = "temp"
 
 # architecture 
 para_lstm_dims_plain = hidden_dim_dic[dataset_str]
@@ -111,9 +111,6 @@ para_val_epoch_num = int(0.05 * para_n_epoch)
 para_test_epoch_num = 1
 
 # ------ utility functions ------
-
-
-
 
 
 def train_nn(num_dense, l2_dense, dropout_keep_prob, log_file, test_pickle, epoch_set):
@@ -171,7 +168,8 @@ def train_nn(num_dense, l2_dense, dropout_keep_prob, log_file, test_pickle, epoc
                             para_bool_regular_attention,
                             para_bool_regular_lstm,
                             para_bool_regular_dropout_output,
-                            para_decay)
+                            para_decay,
+                            para_loss_type)
             
             para_batch_size = para_batch_size_plain
         
@@ -209,13 +207,15 @@ def train_nn(num_dense, l2_dense, dropout_keep_prob, log_file, test_pickle, epoc
             for i in range(iter_per_epoch):
                 
                 # batch data
-                batch_idx = total_idx[ i*para_batch_size: min((i+1)*para_batch_size, total_cnt) ] 
-                batch_x = xtrain[ batch_idx ]
-                batch_y = ytrain[ batch_idx ]
+                batch_idx = total_idx[i*para_batch_size: min((i+1)*para_batch_size, total_cnt)] 
+                batch_x = xtrain[batch_idx]
+                batch_y = ytrain[batch_idx]
                 
-                tmp_loss, tmp_err = reg.train_batch(batch_x, 
-                                                    batch_y, 
-                                                    dropout_keep_prob)
+                tmp_loss, tmp_err = reg.train_batch(x_batch = batch_x, 
+                                                    y_batch = batch_y, 
+                                                    keep_prob = dropout_keep_prob,
+                                                    bool_lr_update = para_decay,
+                                                    lr = 0.0)
                 loss_epoch += tmp_loss
                 err_sum_epoch += tmp_err
                        
@@ -352,11 +352,11 @@ if __name__ == '__main__':
                 
                 # log: overall errors, hyperparameter set-up
                 with open(log_err_file, "a") as text_file:
-                    text_file.write("%f %f %f %s %s \n"%(tmp_num_dense, 
-                                                          tmp_keep_prob, 
-                                                          tmp_l2, 
-                                                          str(error_epoch_log[0]), 
-                                                          str(epoch_time)))
+                    text_file.write("%f %f %f %s %s \n"%(tmp_num_dense,
+                                                         tmp_keep_prob, 
+                                                         tmp_l2, 
+                                                         str(error_epoch_log[0]), 
+                                                         str(epoch_time)))
                     
     with open(log_err_file, "a") as text_file:
         text_file.write( "\n") 
