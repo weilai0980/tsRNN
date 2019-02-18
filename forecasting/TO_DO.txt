@@ -206,6 +206,8 @@ LOSS FUNCTION:
   point-wise loss, loss reweight
   
   
+  evaluate NLLK on mixture 
+  
   
 NORMALIZATION:
   

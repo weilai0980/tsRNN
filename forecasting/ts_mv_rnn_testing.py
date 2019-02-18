@@ -26,12 +26,13 @@ def hyper_para_selection(hpara, error_log, val_epoch_num, test_epoch_num):
     
     return hpara[idx], [i[0] for i in error_log[idx]][:test_epoch_num], min(val_err)
 
-def test_nn(epoch_samples, x_test, y_test, file_path, method_str):
+def test_nn(epoch_samples, x_test, y_test, file_path, method_str, dataset_str):
     
     for idx in epoch_samples:
         
-        tmp_meta = file_path + method_str + '-' + str(idx) + '.meta'
-        tmp_data = file_path + method_str + '-' + str(idx)
+        # path of the stored models 
+        tmp_meta = file_path + method_str + '_' + dataset_str + '_' + str(idx) + '.meta'
+        tmp_data = file_path + method_str + '_' + dataset_str + '_' + str(idx)
         
         # clear graph
         tf.reset_default_graph()

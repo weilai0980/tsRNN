@@ -80,7 +80,7 @@ print(" --- Data shapes: ", np.shape(xtrain), np.shape(ytrain), np.shape(xval), 
 # ------ model set-up ------
 
 # convergence
-para_n_epoch = 170
+para_n_epoch = 110
 
 para_lr_plain = lr_dic[dataset_str]
 para_batch_size_plain = 64
@@ -98,7 +98,7 @@ para_bool_regular_dropout_output = False
 para_bool_residual = False
 
 # loss
-para_loss_type = 'lk' # mse, lk, lk_inv, pseudo_lk 
+para_loss_type = 'lk_inv' # mse, lk, lk_inv, pseudo_lk 
 
 # attention
 para_attention_plain = "temp"
@@ -113,7 +113,7 @@ para_test_epoch_num = 1
 # ------ utility functions ------
 
 
-def train_nn(num_dense, l2_dense, dropout_keep_prob, log_file, test_pickle, epoch_set):
+def train_nn(num_dense, l2_dense, dropout_keep_prob, log_file, test_pickle, epoch_set, bool_retrain):
     
     # log: epoch errors
     with open(log_file, "a") as text_file:
@@ -189,6 +189,11 @@ def train_nn(num_dense, l2_dense, dropout_keep_prob, log_file, test_pickle, epoc
         epoch_error = []
         epoch_test_prediction = []
         
+        
+        best_val_rmse = np.inf
+        best_epoch = 0
+        
+        
         st_time = time.time()
         
         # training epoches 
@@ -238,11 +243,13 @@ def train_nn(num_dense, l2_dense, dropout_keep_prob, log_file, test_pickle, epoc
                 
             with open(log_file, "a") as text_file:
                 text_file.write("%s\n"%(str(epoch_error[-1])[1:-1]))
-                
+            
+            
+            
             # save the model w.r.t. the epoch in epoch_sample
-            if epoch in epoch_set:
-                
-                saver.save(sess, '../../ts_results/model/' + method_str + '-' + str(epoch))
+            if bool_retrain == True and (val_rmse_epoch < best_val_rmse or epoch in epoch_set):
+                # path of the stored models 
+                saver.save(sess, '../../ts_results/model/' + method_str + '_' + dataset_str + '_' + str(epoch))
                 print("    [MODEL SAVED] \n")
         
         ed_time = time.time()
@@ -342,7 +349,8 @@ if __name__ == '__main__':
                                                        tmp_keep_prob, 
                                                        log_epoch_file,
                                                        pred_pickle,
-                                                       [])
+                                                       [], 
+                                                       bool_retrain = False)
                 
                 # error_epoch_log: [epoch, loss, train_rmse, val_rmse, val_mae, val_mape]
                 hpara.append([tmp_num_dense, tmp_keep_prob, tmp_l2])
@@ -362,6 +370,10 @@ if __name__ == '__main__':
         text_file.write( "\n") 
     
     # ------ re-training
+    
+    # fix the random seed to reproduce the results
+    np.random.seed(1)
+    tf.set_random_seed(1)
     
     best_hpara, epoch_sample, best_val_err = hyper_para_selection(hpara, 
                                                                   hpara_err, 
@@ -397,7 +409,8 @@ if __name__ == '__main__':
                                            best_keep_prob, 
                                            log_epoch_file, 
                                            pred_pickle, 
-                                           epoch_sample)
+                                           epoch_sample,
+                                           bool_retrain = False)
     
     # log: overall errors, performance for one hyperparameter set-up
     with open(log_err_file, "a") as text_file:
@@ -410,8 +423,12 @@ if __name__ == '__main__':
     
     print('\n\n----- testing ------ \n')
     
-    yh, rmse, mae, mape = test_nn(epoch_sample, xval, yval, '../../ts_results/model/', method_str)
+    yh, rmse, mae, mape = test_nn(epoch_sample, xval, yval, '../../ts_results/model/', method_str, dataset_str)
     print('\n\n testing errors: ', rmse, mae, mape, '\n\n')
+    
+    yh, rmse, mae, mape = test_nn([error_epoch_log[0][0]], xval, yval, '../../ts_results/model/', method_str, dataset_str)
+    print('\n\n testing errors: ', rmse, mae, mape, '\n\n')
+   
     
     with open(log_err_file, "a") as text_file:
         log_test(text_file, [rmse, mae, mape])

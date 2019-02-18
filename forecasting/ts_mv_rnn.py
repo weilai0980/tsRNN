@@ -94,7 +94,7 @@ class tsLSTM_plain():
             
             print(' --- Plain RNN using temporal attention:  ')
                 
-            h, self.att, regu_att = attention_temp_logit( h, n_lstm_dim_layers[-1], 'att', self.N_STEPS )
+            h, self.att, regu_att = attention_temp_logit(h, n_lstm_dim_layers[-1], 'att', self.N_STEPS)
             
             # dropout
             h, regu_dense, out_dim = multi_dense(h, 2*n_lstm_dim_layers[-1], num_dense, 'dense', self.keep_prob, max_norm)
@@ -841,7 +841,6 @@ class tsLSTM_mv():
                 # ---- output layer: individual predictions
                 
                 # ? dropout
-                
                 if bool_regular_dropout_output == True:
                     h_mv = tf.nn.dropout(h_mv, self.keep_prob)
                 
@@ -1021,6 +1020,7 @@ class tsLSTM_mv():
                                                                                scope = 'att_vari',
                                                                                num_vari = self.N_DATA_DIM,
                                                                                att_type = vari_attention_type)
+                
                 # ---- plain multi dense layers
                 # [B 2D]
                 
