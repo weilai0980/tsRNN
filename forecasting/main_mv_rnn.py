@@ -16,7 +16,7 @@ import json
 from utils_libs import *
 from mv_rnn_cell import *
 from ts_mv_rnn import *
-from ts_mv_rnn_testing import *
+from ts_mv_rnn_eval import *
 from config_hyper_para_mv import *
 
 ''' 

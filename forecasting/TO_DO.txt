@@ -182,18 +182,32 @@ large network -> high learning rate
    
 ---- TO DO ----
 
-MULTI-TASK 
+TRANSFER LEARNING 
+ 
+  https://medium.com/@subodh.malgonde/transfer-learning-using-tensorflow-52a4f6bcde3e
 
-INTERPRETABILITY:
 
+MULTI-TASK
+  self organized multi task via learning variable importance 
+
+
+TRAINING:
+  EM train
+
+
+IMPORTANCE INTERPRETABILITY:
+
+  Uncertainty aware on logits and posterior    
+  
   LIME
   DeepLift
   
   SHARP
   
+  
 LOSS FUNCTION:
 
-  corss-check varialbe ranking or network 
+  corss-check variable ranking or network 
 
   distributional loss: regression 
   risk minimization 
@@ -204,7 +218,6 @@ LOSS FUNCTION:
   
   point-wise loss
   point-wise loss, loss reweight
-  
   
   evaluate NLLK on mixture 
   
@@ -221,8 +234,6 @@ ATTENTION:
   global local attention regularization
   attenion on exgoneous variable taking into account the hiddens of the target variable 
   
-TRAINING:
-   EM train
 
 EXPERIMENTS:
 
@@ -323,6 +334,8 @@ BASELINE:
    
    
 REGULARIZATION:
+
+   regularization w.r.t. different loss functions 
    
    Maxout activiation
 

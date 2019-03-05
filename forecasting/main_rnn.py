@@ -15,7 +15,7 @@ import json
 from ts_mv_rnn import *
 from ts_clstm import *
 from utils_libs import *
-from ts_mv_rnn_testing import *
+from ts_mv_rnn_eval import *
 
 from config_hyper_para_plain import *
 
@@ -34,7 +34,7 @@ method_str: name of the neural network
 # ------ GPU set-up in multi-GPU environment ------
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "4" 
+os.environ["CUDA_VISIBLE_DEVICES"] = "6" 
 
 # ------ arguments ------
 
@@ -46,7 +46,6 @@ parser.add_argument('--dataset', '-d', help = "dataset", type = str)
 parser.add_argument('--model', '-m', help = "model", type = str, default = 'plain')
  
 args = parser.parse_args()
-#print(parser.format_help())
 print(args)  
 
 dataset_str = args.dataset
@@ -56,6 +55,10 @@ method_str = args.model
 import json
 with open('config_data.json') as f:
     file_dict = json.load(f)
+    
+path_result = '../../ts_results/'
+path_model = '../../ts_results/model/'
+path_hyper_para = '../../ts_results/hyper_para/'
 
 # ------ load data ------
 
@@ -77,13 +80,13 @@ para_win_size = np.shape(xtrain)[1]
 
 print(" --- Data shapes: ", np.shape(xtrain), np.shape(ytrain), np.shape(xval), np.shape(yval))
 
-# ------ model set-up ------
+# ------ hyper-parameter set-up ------
 
 # convergence
 para_n_epoch = 110
 
 para_lr_plain = lr_dic[dataset_str]
-para_batch_size_plain = 64
+para_batch_size_plain = batch_size_dic[dataset_str]
 para_is_stateful = False
 
 para_decay = False
@@ -98,10 +101,10 @@ para_bool_regular_dropout_output = False
 para_bool_residual = False
 
 # loss
-para_loss_type = 'lk_inv' # mse, lk, lk_inv, pseudo_lk 
+para_loss_type = 'mse' # mse, lk, lk_inv, pseudo_lk 
 
 # attention
-para_attention_plain = "temp"
+para_attention_plain = ""
 
 # architecture 
 para_lstm_dims_plain = hidden_dim_dic[dataset_str]
@@ -112,8 +115,7 @@ para_test_epoch_num = 1
 
 # ------ utility functions ------
 
-
-def train_nn(num_dense, l2_dense, dropout_keep_prob, log_file, test_pickle, epoch_set, bool_retrain):
+def train_nn(num_dense, l2_dense, dropout_keep_prob, log_file, pred_pickle, epoch_set, bool_retrain):
     
     # log: epoch errors
     with open(log_file, "a") as text_file:
@@ -187,8 +189,6 @@ def train_nn(num_dense, l2_dense, dropout_keep_prob, log_file, test_pickle, epoc
         
         # epoch training and validation errors
         epoch_error = []
-        epoch_test_prediction = []
-        
         
         best_val_rmse = np.inf
         best_epoch = 0
@@ -230,8 +230,6 @@ def train_nn(num_dense, l2_dense, dropout_keep_prob, log_file, test_pickle, epoc
                                                                                   1.0)
             ed_time_epoch = time.time()
             
-            # test ?
-            epoch_test_prediction.append(yh_val)
             epoch_error.append([epoch,
                                 loss_epoch*1.0/iter_per_epoch,
                                 sqrt(1.0*err_sum_epoch/total_cnt),
@@ -245,11 +243,13 @@ def train_nn(num_dense, l2_dense, dropout_keep_prob, log_file, test_pickle, epoc
                 text_file.write("%s\n"%(str(epoch_error[-1])[1:-1]))
             
             
-            
             # save the model w.r.t. the epoch in epoch_sample
             if bool_retrain == True and (val_rmse_epoch < best_val_rmse or epoch in epoch_set):
+                
+                best_val_rmse = val_rmse_epoch
+                 
                 # path of the stored models 
-                saver.save(sess, '../../ts_results/model/' + method_str + '_' + dataset_str + '_' + str(epoch))
+                saver.save(sess, path_model  + method_str + '_' + dataset_str + '_' + str(epoch))
                 print("    [MODEL SAVED] \n")
         
         ed_time = time.time()
@@ -264,7 +264,7 @@ def log_train(text_env):
     
     text_env.write("\n---- dataset: %s \n"%(dataset_str))
     text_env.write("dataset shape: %s \n"%(str(np.shape(xtrain))))
-    text_env.write("method: %s, %s  \n"%(method_str, attention_dic[method_str]))
+    text_env.write("method: %s, \n"%(method_str))
     text_env.write("plain layer size: %s \n"%(str(hidden_dim_dic[dataset_str])))
     text_env.write("lr: %s \n"%(str(lr_dic[dataset_str])))
     text_env.write("learnign rate decay : %s, %d \n"%(para_decay, para_decay_step))
@@ -312,12 +312,12 @@ pred_pickle: only for MV-RNN, set-up wise
 if __name__ == '__main__':
     
     # log: overall erros, hyperparameter
-    log_err_file = "../../ts_results/ts_plain.txt"
+    log_err_file = path_result + "ts_plain.txt"
     with open(log_err_file, "a") as text_file:
         log_train(text_file)
         
     # log: epoch files
-    log_epoch_file = "../../ts_results/log_" + method_str + "_" + dataset_str + ".txt"
+    log_epoch_file = path_result + "log_" + method_str + "_" + dataset_str + ".txt"
     with open(log_epoch_file, "a") as text_file:
         log_train(text_file)
     
@@ -333,11 +333,11 @@ if __name__ == '__main__':
     
     # for tmp_lr in [0.001, 0.002, 0.005]
     for tmp_num_dense in [0, 1]:
-        for tmp_keep_prob in [1.0, 0.8]:
+        for tmp_keep_prob in [0.8]:
             for tmp_l2 in [0.00001, 0.0001, 0.001, 0.01]:
                 
                 # pickle: predictions            
-                pred_pickle = "../../ts_results/pred_"\
+                pred_pickle = path_result + "pred_"\
                               + str(dataset_str) + "_" \
                               + str(tmp_num_dense) + \
                               str(tmp_keep_prob) + \
@@ -392,17 +392,8 @@ if __name__ == '__main__':
     
     with open(log_err_file, "a") as text_file:
         log_val(text_file, best_hpara, epoch_sample, best_val_err)
-    
-    import json
-    with open('../../ts_results/hyper_para/' + dataset_str + '_' + method_str + '_' + para_attention_plain + '.json', 'w') as fp:
         
-        tmp_hyper_para = {'num_dense':best_hpara[0],
-                          'keep_prob':best_hpara[1],
-                          'l2':best_hpara[2]
-                         }
         
-        json.dump(tmp_hyper_para, fp)
-    
     # start the re-training
     error_epoch_log, epoch_time = train_nn(best_num_dense, 
                                            best_l2, 
@@ -410,7 +401,19 @@ if __name__ == '__main__':
                                            log_epoch_file, 
                                            pred_pickle, 
                                            epoch_sample,
-                                           bool_retrain = False)
+                                           bool_retrain = True)
+    
+    # ------ logging 
+    
+    import json
+    with open(path_hyper_para + dataset_str + '_' + method_str + '_' + para_attention_plain + '.json', 'w') as fp:
+        
+        tmp_hyper_para = {'num_dense':best_hpara[0],
+                          'keep_prob':best_hpara[1],
+                          'l2':best_hpara[2],
+                          'epoch':epoch_sample + [error_epoch_log[0][0]]}
+        
+        json.dump(tmp_hyper_para, fp)
     
     # log: overall errors, performance for one hyperparameter set-up
     with open(log_err_file, "a") as text_file:
@@ -419,15 +422,19 @@ if __name__ == '__main__':
                                               best_l2, 
                                               str(error_epoch_log[0]), 
                                               str(epoch_time)))
+        
     # ------ testing
     
     print('\n\n----- testing ------ \n')
     
-    yh, rmse, mae, mape = test_nn(epoch_sample, xval, yval, '../../ts_results/model/', method_str, dataset_str)
+    yh, rmse, mae, mape = test_nn(epoch_sample, xval, yval, path_model, method_str, dataset_str)
     print('\n\n testing errors: ', rmse, mae, mape, '\n\n')
     
-    yh, rmse, mae, mape = test_nn([error_epoch_log[0][0]], xval, yval, '../../ts_results/model/', method_str, dataset_str)
-    print('\n\n testing errors: ', rmse, mae, mape, '\n\n')
+    
+    if error_epoch_log[0][0] not in epoch_sample:
+        
+        yh, rmse, mae, mape = test_nn([error_epoch_log[0][0]], xval, yval, path_model, method_str, dataset_str)
+        print('\n\n testing errors: ', rmse, mae, mape, '\n\n')
    
     
     with open(log_err_file, "a") as text_file:

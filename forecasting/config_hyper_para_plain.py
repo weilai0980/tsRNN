@@ -15,8 +15,8 @@ hidden_dim_dic.update( {"pm25": [140]} )
 # learning rate increases as network size 
 lr_dic = {}
 
-# lk: 0.1, mse: 0.01
-lr_dic.update( {"plant": 0.1} )
+# lk: 0.05, mse: 0.01
+lr_dic.update( {"plant": 0.01} )
 # lk: ?, mse: 0.01
 lr_dic.update( {"sml": 0.01} )
 lr_dic.update( {"nasdaq": 0.05} )
