@@ -191,6 +191,9 @@ MULTI-TASK
   self organized multi task via learning variable importance 
 
 
+MODEL:
+  high-order feature interaction 
+
 TRAINING:
   EM train
 
